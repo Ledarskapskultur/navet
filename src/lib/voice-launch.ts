@@ -41,3 +41,24 @@ export function setVoiceOnLaunch(on: boolean): void {
   }
   window.dispatchEvent(new Event(EVENT));
 }
+
+const GREETING_KEY = "navet.voiceGreeting";
+
+/** Whether Navet says "Jag är redo" before listening (on by default). */
+export function voiceGreetingEnabled(): boolean {
+  try {
+    return window.localStorage.getItem(GREETING_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+export function setVoiceGreeting(on: boolean): void {
+  try {
+    if (on) window.localStorage.removeItem(GREETING_KEY);
+    else window.localStorage.setItem(GREETING_KEY, "0");
+  } catch {
+    // storage blocked; default (on) applies
+  }
+  window.dispatchEvent(new Event(EVENT));
+}

@@ -2,7 +2,9 @@
 
 import clsx from "clsx";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Mic, MicOff, Sparkles } from "lucide-react";
+import { Mic, MicOff, Sparkles, Volume2 } from "lucide-react";
+import { announceReady, READY_PROMPT } from "@/lib/speech";
+import { voiceGreetingEnabled } from "@/lib/voice-launch";
 import { parseCapture } from "@/lib/parser";
 import { ITEM_TYPES, type ItemType } from "@/lib/types";
 import { TYPE_LABEL } from "@/lib/labels";
@@ -61,6 +63,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
   // Hands-free: countdown to auto-save after you stop talking (null = no countdown running).
   const [countdown, setCountdown] = useState<number | null>(null);
   const [micBlocked, setMicBlocked] = useState(false);
+  const [announcing, setAnnouncing] = useState(false);
   const heardRef = useRef("");
 
   useEffect(() => {
@@ -128,12 +131,25 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
     startListening(handsFree);
   };
 
-  // Hands-free launch ("Hey Google, öppna Navet" / "Tala in"-genvägen): start listening right away.
+  // Hands-free launch ("Hey Google, öppna Navet" / "Tala in"-genvägen): say that Navet is
+  // ready, then listen. The mic opens only after the prompt so it doesn't hear itself.
   useEffect(() => {
-    // Deferred one tick so the dialog has rendered before the mic opens.
-    const t = handsFree && speechSupported ? setTimeout(() => startListening(true), 0) : undefined;
+    if (!handsFree || !speechSupported) return;
+    let cancelled = false;
+    // Deferred one tick so the dialog has rendered first.
+    const t = setTimeout(async () => {
+      if (voiceGreetingEnabled()) {
+        setAnnouncing(true);
+        await announceReady();
+        if (cancelled) return;
+        setAnnouncing(false);
+      }
+      startListening(true);
+    }, 0);
     return () => {
+      cancelled = true;
       clearTimeout(t);
+      window.speechSynthesis?.cancel();
       recRef.current?.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -182,7 +198,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
 
   return (
     <div className="space-y-5 pb-2 pt-1" onPointerDown={() => countdown !== null && setCountdown(null)}>
-      {handsFree && (listening || countdown !== null || micBlocked) && (
+      {handsFree && (announcing || listening || countdown !== null || micBlocked) && (
         <div
           role="status"
           className={clsx(
@@ -192,6 +208,11 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
         >
           {micBlocked ? (
             <>Tryck på mikrofonen för att prata. Första gången frågar telefonen om lov att använda mikrofonen.</>
+          ) : announcing ? (
+            <>
+              <Volume2 className="size-4 shrink-0 text-accent" />
+              {READY_PROMPT}
+            </>
           ) : listening ? (
             <>
               <span className="relative flex size-3">
