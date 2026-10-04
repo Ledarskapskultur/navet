@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Database, LogOut, Mail, RotateCcw, Smartphone } from "lucide-react";
+import { CalendarDays, Database, LogOut, Mail, Mic, RotateCcw, Smartphone } from "lucide-react";
 import { useNavet } from "@/components/navet-provider";
 import { Button, Card, Notice, PageHeader, Section, inputClass } from "@/components/ui";
 import { GoogleTasksIcon } from "@/components/icons";
+import { setVoiceOnLaunch, subscribeVoiceOnLaunch, voiceOnLaunchEnabled } from "@/lib/voice-launch";
 
 const ERRORS: Record<string, string> = {
   google_not_configured: "Google OAuth är inte konfigurerat. Lägg till GOOGLE_CLIENT_ID och GOOGLE_CLIENT_SECRET i .env.local.",
@@ -106,6 +107,10 @@ APP_URL=http://localhost:3000`}</pre>
         </Card>
       </Section>
 
+      <Section title="Röst">
+        <VoiceLaunchSetting />
+      </Section>
+
       <Section title="Installera på mobilen">
         <Card className="flex items-start gap-3 p-5 text-sm text-ink-2">
           <Smartphone className="mt-0.5 size-5 text-ink-3" />
@@ -141,5 +146,35 @@ export default function SettingsPage() {
     <Suspense>
       <SettingsView />
     </Suspense>
+  );
+}
+
+function VoiceLaunchSetting() {
+  const on = useSyncExternalStore(subscribeVoiceOnLaunch, voiceOnLaunchEnabled, () => false);
+
+  return (
+    <Card className="space-y-4 p-5 text-sm text-ink-2">
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => setVoiceOnLaunch(e.target.checked)}
+          className="mt-0.5 size-4 accent-[#2f5d4e]"
+        />
+        <span>
+          <span className="flex items-center gap-2 font-medium text-ink">
+            <Mic className="size-4" /> Starta röst när Navet öppnas
+          </span>
+          <span className="mt-1 block">
+            Gäller den installerade appen på den här enheten. Säg <strong className="text-ink">”Hey Google, öppna Navet”</strong>,
+            prata in det du vill komma ihåg, så sparas det i inkorgen efter tre sekunder.
+          </span>
+        </span>
+      </label>
+      <p>
+        Du kan också hålla fingret på Navet-ikonen och välja <strong className="text-ink">Tala in</strong>, eller dra ut den
+        genvägen till hemskärmen. Första gången frågar telefonen om lov att använda mikrofonen.
+      </p>
+    </Card>
   );
 }

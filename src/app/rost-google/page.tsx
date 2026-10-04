@@ -82,8 +82,13 @@ export default function VoicePage() {
               </Card>
             ) : (
               <Card className="space-y-3 p-5 text-sm leading-relaxed text-ink-2">
+                <p className="rounded-xl bg-accent-soft p-3 text-ink">
+                  <strong>Enklast, utan Google Workspace:</strong> installera Navet på hemskärmen och slå på{" "}
+                  <em>Starta röst när Navet öppnas</em> under Inställningar. Säg sedan ”Hey Google, öppna Navet” och prata in
+                  det du vill komma ihåg.
+                </p>
                 <p>
-                  1. På din Android: säg <strong className="text-ink">”Hey Google, påminn mig att …”</strong> eller be Gemini
+                  1. Via Google Tasks: på din Android: säg <strong className="text-ink">”Hey Google, påminn mig att …”</strong> eller be Gemini
                   ”lägg till … i Google Tasks”.
                 </p>
                 <p>2. Öppna Navet – nya uppgifter hämtas automatiskt (äldre än 2 minuter sedan senaste synk).</p>

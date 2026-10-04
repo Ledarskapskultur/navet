@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   CalendarDays,
   FolderKanban,
@@ -26,6 +26,7 @@ import { ItemEditor } from "./item-editor";
 import { SyncStatus } from "./sync-status";
 import { GoogleTasksIcon } from "./icons";
 import { isActive } from "@/lib/selectors";
+import { isStandalone, voiceOnLaunchEnabled } from "@/lib/voice-launch";
 
 interface NavItem {
   href: string;
@@ -132,11 +133,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const pathname = usePathname();
 
-  // PWA shortcut "/?fanga=1" opens quick capture directly.
+  // PWA shortcuts: "/?fanga=1" opens quick capture, "/?fanga=1&rost=1" starts listening at once.
+  // With "Starta röst när Navet öppnas" on, launching the installed app (e.g. "Hey Google, öppna Navet")
+  // goes straight to listening too.
+  const launchHandled = useRef(false);
   useEffect(() => {
-    if (!ready || !new URLSearchParams(window.location.search).has("fanga")) return;
-    window.history.replaceState(null, "", window.location.pathname);
-    openCapture();
+    if (!ready || launchHandled.current) return;
+    launchHandled.current = true;
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("fanga")) {
+      window.history.replaceState(null, "", window.location.pathname);
+      openCapture("", { voice: params.has("rost") });
+      return;
+    }
+    if (isStandalone() && voiceOnLaunchEnabled() && window.location.pathname === "/") {
+      openCapture("", { voice: true });
+    }
   }, [ready, openCapture]);
 
   // Keyboard shortcut: "n" or Ctrl/Cmd+K opens quick capture.

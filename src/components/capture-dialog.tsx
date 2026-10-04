@@ -19,9 +19,9 @@ interface SpeechRecognitionLike {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }> }) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((e?: { error?: string }) => void) | null;
   start: () => void;
   stop: () => void;
 }
@@ -33,15 +33,18 @@ function getSpeechRecognition(): (new () => SpeechRecognitionLike) | null {
 }
 
 export function CaptureDialog() {
-  const { captureOpen, closeCapture, captureInitial } = useNavet();
+  const { captureOpen, closeCapture, captureInitial, captureVoice } = useNavet();
   return (
     <Modal open={captureOpen} onClose={closeCapture} title="Fånga">
-      {captureOpen && <CaptureBody initial={captureInitial} />}
+      {captureOpen && <CaptureBody initial={captureInitial} handsFree={captureVoice} />}
     </Modal>
   );
 }
 
-function CaptureBody({ initial }: { initial: string }) {
+/** Seconds before a hands-free capture saves itself. Any touch cancels it. */
+const AUTO_SAVE_SECONDS = 3;
+
+function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boolean }) {
   const { projects, sync, createItem, closeCapture, notify, status } = useNavet();
   const [text, setText] = useState(initial);
   const [override, setOverride] = useState<Override>({});
@@ -55,8 +58,14 @@ function CaptureBody({ initial }: { initial: string }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const speechSupported = useMemo(() => !!getSpeechRecognition(), []);
+  // Hands-free: countdown to auto-save after you stop talking (null = no countdown running).
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [micBlocked, setMicBlocked] = useState(false);
+  const heardRef = useRef("");
 
-  useEffect(() => inputRef.current?.focus(), []);
+  useEffect(() => {
+    if (!handsFree) inputRef.current?.focus();
+  }, [handsFree]);
 
   const parsed = useMemo(() => parseCapture(text, projects), [text, projects]);
   const result = { ...parsed, ...override };
@@ -66,6 +75,7 @@ function CaptureBody({ initial }: { initial: string }) {
 
   const onText = (v: string) => {
     setText(v);
+    setCountdown(null);
     setOverride((o) => {
       // keep manual choices except title, which follows the text
       const { title: _title, ...rest } = o;
@@ -74,30 +84,63 @@ function CaptureBody({ initial }: { initial: string }) {
     });
   };
 
-  const toggleVoice = () => {
-    if (listening) {
-      recRef.current?.stop();
-      return;
-    }
+  const startListening = (autoSave: boolean) => {
     const SR = getSpeechRecognition();
     if (!SR) return;
     const rec = new SR();
     rec.lang = "sv-SE";
     rec.interimResults = true;
     rec.continuous = false;
+    heardRef.current = "";
     rec.onresult = (e) => {
       const transcript = Array.from(e.results).map((r) => r[0].transcript).join(" ");
-      onText(transcript);
+      heardRef.current = transcript;
+      setText(transcript);
+      setOverride(({ title: _t, ...rest }) => (void _t, rest));
       setUsedVoice(true);
     };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => setListening(false);
+    rec.onend = () => {
+      setListening(false);
+      if (autoSave && heardRef.current.trim()) setCountdown(AUTO_SAVE_SECONDS);
+    };
+    rec.onerror = (e) => {
+      setListening(false);
+      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") setMicBlocked(true);
+    };
     recRef.current = rec;
     setListening(true);
-    rec.start();
+    setMicBlocked(false);
+    try {
+      rec.start();
+    } catch {
+      // Some browsers refuse to start without a tap; fall back to the mic button.
+      setListening(false);
+      setMicBlocked(true);
+    }
   };
 
+  const toggleVoice = () => {
+    setCountdown(null);
+    if (listening) {
+      recRef.current?.stop();
+      return;
+    }
+    startListening(handsFree);
+  };
+
+  // Hands-free launch ("Hey Google, öppna Navet" / "Tala in"-genvägen): start listening right away.
+  useEffect(() => {
+    // Deferred one tick so the dialog has rendered before the mic opens.
+    const t = handsFree && speechSupported ? setTimeout(() => startListening(true), 0) : undefined;
+    return () => {
+      clearTimeout(t);
+      recRef.current?.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const save = async () => {
+    setCountdown(null);
     if (!result.title.trim() || saving) return;
     setSaving(true);
     const status = sortNow ? (result.type === "waiting" ? "waiting" : "open") : "inbox";
@@ -123,8 +166,42 @@ function CaptureBody({ initial }: { initial: string }) {
     }
   };
 
+  useEffect(() => {
+    if (countdown === null) return;
+    const t = setTimeout(() => {
+      if (countdown <= 1) void save();
+      else setCountdown(countdown - 1);
+    }, 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown]);
+
   return (
-    <div className="space-y-5 pb-2 pt-1">
+    <div className="space-y-5 pb-2 pt-1" onPointerDown={() => countdown !== null && setCountdown(null)}>
+      {handsFree && (listening || countdown !== null || micBlocked) && (
+        <div
+          role="status"
+          className={clsx(
+            "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm",
+            micBlocked ? "bg-warn-soft text-warn" : "bg-accent-soft text-ink",
+          )}
+        >
+          {micBlocked ? (
+            <>Tryck på mikrofonen för att prata. Första gången frågar telefonen om lov att använda mikrofonen.</>
+          ) : listening ? (
+            <>
+              <span className="relative flex size-3">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />
+                <span className="relative inline-flex size-3 rounded-full bg-accent" />
+              </span>
+              Lyssnar … säg vad du vill komma ihåg
+            </>
+          ) : (
+            <>Sparar i inkorgen om {countdown} s · tryck var som helst för att ändra</>
+          )}
+        </div>
+      )}
+
       <div className="relative">
         <textarea
           ref={inputRef}

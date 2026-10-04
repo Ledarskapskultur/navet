@@ -18,6 +18,7 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
+      { name: "Tala in", short_name: "Tala in", url: "/?fanga=1&rost=1", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
       { name: "Fånga", url: "/?fanga=1", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
       { name: "Inkorg", url: "/inkorg" },
     ],

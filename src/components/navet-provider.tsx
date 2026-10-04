@@ -37,9 +37,11 @@ interface NavetContextValue {
   logout: () => Promise<void>;
   // UI state
   captureOpen: boolean;
-  openCapture: (initial?: string) => void;
+  openCapture: (initial?: string, opts?: { voice?: boolean }) => void;
   closeCapture: () => void;
   captureInitial: string;
+  /** True when capture was opened hands-free (PWA shortcut / auto-start): listen at once and auto-save. */
+  captureVoice: boolean;
   editing: NavetItem | null;
   openItem: (item: NavetItem) => void;
   closeItem: () => void;
@@ -61,6 +63,7 @@ export function NavetProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureInitial, setCaptureInitial] = useState("");
+  const [captureVoice, setCaptureVoice] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const syncRef = useRef<SyncState | null>(null);
   const syncingRef = useRef(false);
@@ -303,8 +306,10 @@ export function NavetProvider({ children }: { children: ReactNode }) {
     logout,
     captureOpen,
     captureInitial,
-    openCapture: (initial = "") => {
+    captureVoice,
+    openCapture: (initial = "", opts) => {
       setCaptureInitial(initial);
+      setCaptureVoice(!!opts?.voice);
       setCaptureOpen(true);
     },
     closeCapture: () => setCaptureOpen(false),
