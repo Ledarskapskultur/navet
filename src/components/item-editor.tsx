@@ -183,6 +183,7 @@ function EditorBody({ item }: { item: NavetItem }) {
       </div>
 
       {/* Google Tasks */}
+      {status?.googleEnabled && (
       <div className="rounded-2xl border border-line p-4">
         <div className="mb-3 flex items-center gap-2">
           <GoogleTasksIcon className="size-4" />
@@ -223,6 +224,7 @@ function EditorBody({ item }: { item: NavetItem }) {
           <p className="text-sm text-ink-3">Synka med Google Tasks för att kunna koppla objektet.</p>
         )}
       </div>
+      )}
 
       <div className="flex flex-col-reverse gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
         {confirmDelete ? (

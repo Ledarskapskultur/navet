@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/client-api";
 import type { AppStatus, ItemPatch, NavetItem, NewItemInput, Project, SyncState } from "@/lib/types";
 
@@ -35,6 +35,7 @@ interface NavetContextValue {
   simulateVoice: (text: string) => Promise<void>;
   resetDemo: () => Promise<void>;
   logout: () => Promise<void>;
+  lock: () => Promise<void>;
   // UI state
   captureOpen: boolean;
   openCapture: (initial?: string, opts?: { voice?: boolean }) => void;
@@ -54,6 +55,8 @@ const AUTO_SYNC_MS = 2 * 60_000;
 
 export function NavetProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const onUnlockPage = pathname === "/logga-in";
   const [ready, setReady] = useState(false);
   const [items, setItems] = useState<NavetItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -67,7 +70,9 @@ export function NavetProvider({ children }: { children: ReactNode }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const syncRef = useRef<SyncState | null>(null);
   const syncingRef = useRef(false);
+  const googleRef = useRef(false);
   syncRef.current = sync;
+  googleRef.current = !!status?.googleEnabled;
 
   const notify = useCallback((text: string, tone: Toast["tone"] = "info") => {
     const id = Date.now() + Math.random();
@@ -77,9 +82,13 @@ export function NavetProvider({ children }: { children: ReactNode }) {
 
   const handleError = useCallback(
     (err: unknown) => {
+      if (err instanceof ApiError && err.code === "locked") {
+        window.location.replace("/logga-in");
+        return;
+      }
       if (err instanceof ApiError && err.code === "reauth") {
         notify("Google-inloggningen har gått ut. Logga in igen.", "error");
-        setStatus((s) => (s ? { ...s, mode: "demo", user: null } : s));
+        setStatus((s) => (s ? { ...s, mode: "personal", user: null, googleEnabled: false } : s));
         return;
       }
       notify((err as Error).message || "Något gick fel", "error");
@@ -93,11 +102,12 @@ export function NavetProvider({ children }: { children: ReactNode }) {
     setProjects(data.projects);
     setSync(data.sync);
     setStatus(data.status);
+    googleRef.current = data.status.googleEnabled;
   }, []);
 
   const syncNow = useCallback(
     async (opts: { silent?: boolean } = {}) => {
-      if (syncingRef.current) return;
+      if (syncingRef.current || !googleRef.current) return;
       syncingRef.current = true;
       setSyncing(true);
       try {
@@ -128,6 +138,7 @@ export function NavetProvider({ children }: { children: ReactNode }) {
 
   // Initial load + auto-sync so tasks created via "Hey Google" show up.
   useEffect(() => {
+    if (onUnlockPage) return;
     let cancelled = false;
     refresh()
       .then(() => {
@@ -150,7 +161,7 @@ export function NavetProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [refresh, syncNow, handleError]);
+  }, [refresh, syncNow, handleError, onUnlockPage]);
 
   const upsertLocal = (item: NavetItem) =>
     setItems((list) => (list.some((i) => i.id === item.id) ? list.map((i) => (i.id === item.id ? item : i)) : [item, ...list]));
@@ -275,6 +286,11 @@ export function NavetProvider({ children }: { children: ReactNode }) {
     router.push("/");
   };
 
+  const lock = async () => {
+    await api("/api/auth/lock", { method: "POST" }).catch(() => undefined);
+    window.location.replace("/logga-in");
+  };
+
   const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
   const listMap = useMemo(() => new Map((sync?.lists ?? []).map((l) => [l.id, l.title])), [sync]);
 
@@ -304,6 +320,7 @@ export function NavetProvider({ children }: { children: ReactNode }) {
     simulateVoice,
     resetDemo,
     logout,
+    lock,
     captureOpen,
     captureInitial,
     captureVoice,

@@ -12,6 +12,10 @@ export const env = {
   msClientSecret: process.env.MICROSOFT_CLIENT_SECRET || null,
   msTenantId: process.env.MICROSOFT_TENANT_ID || "common",
   dataDir: process.env.NAVET_DATA_DIR || null,
+  /** Optional password that protects the whole app */
+  appPassword: process.env.APP_PASSWORD || null,
+  /** Show sample data and a simulated Google Tasks instead of the personal workspace */
+  demoMode: process.env.NAVET_DEMO === "1",
   isProd: process.env.NODE_ENV === "production",
 };
 

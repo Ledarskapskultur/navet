@@ -9,7 +9,7 @@ import { MockTasksProvider } from "../integrations/google/mock-tasks";
 import type { GoogleTask, GoogleTaskInput, TasksProvider } from "../integrations/google/types";
 import type { RequestContext } from "./session";
 import { getStore, type NavetStore } from "./store";
-import { newItem, seedDemoItems, seedMockGoogle, seedProjects } from "./seed";
+import { newItem, seedDemoItems, seedMockGoogle, seedProjects, seedWelcomeItems } from "./seed";
 
 const SYNC_KEY = "google_sync_state";
 const SEEDED_KEY = "seeded_v1";
@@ -18,7 +18,8 @@ export class NotFoundError extends Error {}
 
 /** One instance per request. All writes to Google go through here. */
 export class NavetService {
-  private provider: TasksProvider;
+  /** null in personal mode – Navet then works entirely on its own */
+  private provider: TasksProvider | null;
 
   private constructor(
     private ctx: RequestContext,
@@ -37,6 +38,12 @@ export class NavetService {
     return this.ctx.userId;
   }
 
+  /** The Google Tasks backend; only called on paths that are guarded by `this.provider`. */
+  private get google(): TasksProvider {
+    if (!this.provider) throw new Error("Google Tasks är inte kopplat.");
+    return this.provider;
+  }
+
   get storageKind() {
     return this.store.kind;
   }
@@ -47,6 +54,8 @@ export class NavetService {
     if (this.ctx.mode === "demo") {
       await this.store.insertItems(this.userId, seedDemoItems());
       await this.store.setKV(this.userId, MockTasksProvider.KEY, seedMockGoogle());
+    } else {
+      await this.store.insertItems(this.userId, seedWelcomeItems());
     }
     await this.store.setKV(this.userId, SEEDED_KEY, true);
   }
@@ -98,7 +107,7 @@ export class NavetService {
       externalListId: null,
       externalUpdatedAt: null,
     });
-    if (opts.syncToGoogle) item = await this.pushNewToGoogle(item, opts.listId ?? null);
+    if (opts.syncToGoogle && this.provider) item = await this.pushNewToGoogle(item, opts.listId ?? null);
     await this.store.insertItems(this.userId, [item]);
     return item;
   }
@@ -117,7 +126,9 @@ export class NavetService {
     after.externalUpdatedAt = before.externalUpdatedAt;
     after.externalListId = before.externalListId;
 
-    if (before.externalProvider === "google_tasks" && before.externalId && before.externalListId) {
+    if (!this.provider) {
+      // Personal mode: nothing to push.
+    } else if (before.externalProvider === "google_tasks" && before.externalId && before.externalListId) {
       after = await this.pushUpdateToGoogle(before, after, patch.externalListId ?? opts.listId ?? null);
     } else if (opts.syncToGoogle) {
       after = await this.pushNewToGoogle(after, opts.listId ?? null);
@@ -129,8 +140,8 @@ export class NavetService {
 
   async deleteItem(id: string, opts: { deleteExternal?: boolean } = {}) {
     const item = await this.getItemOrThrow(id);
-    if (opts.deleteExternal !== false && item.externalProvider === "google_tasks" && item.externalId && item.externalListId) {
-      await this.provider.deleteTask(item.externalListId, item.externalId).catch((err) => {
+    if (this.provider && opts.deleteExternal !== false && item.externalProvider === "google_tasks" && item.externalId && item.externalListId) {
+      await this.google.deleteTask(item.externalListId, item.externalId).catch((err) => {
         // Already deleted in Google is fine.
         if (!String(err?.message).includes("404")) throw err;
       });
@@ -166,14 +177,14 @@ export class NavetService {
     if (listId) return listId;
     const state = await this.getSyncState();
     if (state.defaultListId) return state.defaultListId;
-    const lists = await this.provider.listTaskLists();
+    const lists = await this.google.listTaskLists();
     if (!lists.length) throw new Error("Hittade inga Google Tasks-listor.");
     return lists[0].id;
   }
 
   private async pushNewToGoogle(item: NavetItem, listId: string | null): Promise<NavetItem> {
     const target = await this.resolveListId(listId);
-    const task = await this.provider.insertTask(target, this.toGoogleInput(item));
+    const task = await this.google.insertTask(target, this.toGoogleInput(item));
     return {
       ...item,
       externalId: task.id,
@@ -189,7 +200,7 @@ export class NavetService {
     let updated = before.externalUpdatedAt;
 
     if (targetListId && targetListId !== listId) {
-      const moved = await this.provider.moveTask(listId, taskId, targetListId);
+      const moved = await this.google.moveTask(listId, taskId, targetListId);
       listId = targetListId;
       taskId = moved.id;
       updated = moved.updated;
@@ -203,7 +214,7 @@ export class NavetService {
       input.status = after.status === "done" ? "completed" : "needsAction";
     }
     if (Object.keys(input).length) {
-      const task = await this.provider.patchTask(listId, taskId, input);
+      const task = await this.google.patchTask(listId, taskId, input);
       updated = task.updated;
     }
     return { ...after, externalListId: listId, externalId: taskId, externalUpdatedAt: updated };
@@ -247,7 +258,7 @@ export class NavetService {
   // ---------- Google Tasks ----------
 
   async listGoogleLists() {
-    return this.provider.listTaskLists();
+    return this.provider ? this.provider.listTaskLists() : [];
   }
 
   async setDefaultList(listId: string) {
@@ -265,8 +276,10 @@ export class NavetService {
    */
   async syncGoogle(): Promise<{ state: SyncState; imported: number; updated: number; removed: number }> {
     const prev = await this.getSyncState();
+    if (!this.provider) return { state: prev, imported: 0, updated: 0, removed: 0 };
+    const provider = this.provider;
     try {
-      const lists = await this.provider.listTaskLists();
+      const lists = await provider.listTaskLists();
       const projects = await this.listProjects();
       const items = await this.listItems();
       const linked = new Map(
@@ -279,7 +292,7 @@ export class NavetService {
       const recentCutoff = now.getTime() - 7 * 86400_000;
 
       for (const list of lists) {
-        const tasks = await this.provider.listTasks(list.id);
+        const tasks = await provider.listTasks(list.id);
         for (const task of tasks) {
           if (!task.title?.trim()) continue;
           seen.add(task.id);

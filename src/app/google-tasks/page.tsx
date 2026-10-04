@@ -25,6 +25,19 @@ export default function GoogleTasksPage() {
   const open = inList.filter((i) => i.status !== "done" && i.status !== "archived").sort(byDue);
   const done = inList.filter((i) => i.status === "done");
 
+  if (status && !status.googleEnabled) {
+    return (
+      <div>
+        <PageHeader title="Google Tasks" />
+        <EmptyState
+          title="Google Tasks är inte kopplat"
+          text="Navet fungerar fullt ut utan Google. Vill du synka med Google Tasks senare kan du koppla det under Inställningar."
+          action={<Link href="/installningar" className="text-sm font-medium text-accent underline underline-offset-2">Till Inställningar</Link>}
+        />
+      </div>
+    );
+  }
+
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !listId) return;

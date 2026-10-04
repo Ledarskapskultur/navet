@@ -47,6 +47,23 @@ export function newItem(partial: Partial<NavetItem> & { title: string }, now = n
   };
 }
 
+/** First-run content for the personal workspace: a short guide in the inbox. */
+export function seedWelcomeItems(now = new Date()): NavetItem[] {
+  return [
+    newItem(
+      {
+        title: "Välkommen till Navet – prova att trycka på + Fånga",
+        type: "note",
+        status: "inbox",
+        description:
+          "Skriv eller säg det du vill komma ihåg, t.ex. ”Ring Johan på torsdag” eller ”Jag lovade Anna att skicka offerten på fredag”. " +
+          "Navet föreslår typ, datum och projekt. Allt nytt hamnar här i Inkorgen tills du sorterat det. Radera den här anteckningen när du läst den.",
+      },
+      now,
+    ),
+  ];
+}
+
 export function seedDemoItems(now = new Date()): NavetItem[] {
   const d = (n: number) => toISODate(addDays(now, n));
   const ago = (hours: number) => new Date(now.getTime() - hours * 3600_000).toISOString();

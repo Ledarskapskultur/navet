@@ -27,7 +27,7 @@ export default function TodayPage() {
 
   const attention = [
     { n: overdue.length, label: overdue.length === 1 ? "försenad uppgift" : "försenade uppgifter", href: "/att-gora?filter=overdue", tone: "warn" },
-    { n: mails?.length ?? 0, label: "flaggade mail", href: "/mail", tone: "neutral" },
+    { n: mails?.length ?? 0, label: "flaggade mail (exempel)", href: "/mail", tone: "neutral" },
     { n: waiting.length, label: waiting.length === 1 ? "sak du väntar på" : "saker du väntar på", href: "/vantar-pa", tone: "neutral" },
     { n: inbox.length, label: inbox.length === 1 ? "ny sak i inkorgen" : "nya saker i inkorgen", href: "/inkorg", tone: "accent" },
   ];

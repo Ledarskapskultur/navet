@@ -2,7 +2,22 @@
 
 **Navet** är en personlig arbetsyta som samlar uppgifter, löften, idéer, anteckningar och kalender på ett ställe. Senare kommer även flaggade Outlook-mail in här.
 
-Grundprincipen är att **Navet är huvudsystemet**. Google Tasks (och senare Outlook) är *integrationskällor*: det som skapas där hämtas in till Navet, och det du ändrar i Navet skickas tillbaka.
+Grundprincipen är att **Navet är huvudsystemet**. Navet fungerar **fullt ut på egen hand, utan Google-konto** (personligt läge, standard). Google Tasks och senare Outlook är *valfria* integrationskällor.
+
+## Snabbast i drift (utan Google)
+
+1. Deploya till Vercel (se [Deploy](#8-deploy)).
+2. Lägg in miljövariablerna `APP_PASSWORD` (ditt lösenord) samt `SUPABASE_URL` och `SUPABASE_SERVICE_ROLE_KEY` (databasen, se [6](#6-miljövariabler)). Gör en ny deploy.
+3. Öppna Navet i Chrome på Android → ⋮ → **Installera app**.
+4. **Inställningar → Röst → Starta röst när Navet öppnas.** Säg sedan *"Hey Google, öppna Navet"* och prata in det du vill komma ihåg.
+
+| Läge | När | Vad du ser |
+|---|---|---|
+| **Personligt** (standard) | Inget Google-konto inloggat | Din egen arbetsyta. Inga Google-delar i menyn |
+| **Google** | Du har kopplat Google under Inställningar | Som ovan + tvåvägssynk med Google Tasks |
+| **Demo** | `NAVET_DEMO=1` | Exempeldata och simulerad Google Tasks |
+
+Resten av den här README:n beskriver även den valfria Google-kopplingen:
 
 ```
 "Hey Google, påminn mig att skicka brevet till Anna idag"
@@ -115,7 +130,7 @@ npm run dev
 
 Öppna <http://localhost:3000>.
 
-**Utan några credentials** startar appen i **demoläge**. Då får du exempeldata och en *simulerad* Google Tasks med tre listor, så att du kan prova hela flödet direkt: synk, klarmarkering, flytt mellan listor, röstsimulering med mera. Demodatan kan återställas under *Inställningar*.
+**Utan några credentials** startar appen i **personligt läge**: en tom arbetsyta med dina fem projekt, ingen Google-koppling. Vill du se exempeldata och en *simulerad* Google Tasks, starta med `NAVET_DEMO=1 npm run dev`.
 
 Övriga kommandon:
 
@@ -180,6 +195,8 @@ Kopiera `.env.example` till `.env.local`:
 
 | Variabel | Krävs | Beskrivning |
 |---|---|---|
+| `APP_PASSWORD` | Rekommenderas | Lösenord som skyddar hela appen. Anges en gång per enhet |
+| `NAVET_DEMO` | Nej | `1` = visa exempeldata och simulerad Google Tasks |
 | `APP_URL` | Ja (för Google) | Bas-URL, t.ex. `http://localhost:3000` |
 | `SESSION_SECRET` | Ja i produktion | Minst 32 tecken. Krypterar sessionen med Google-tokens. Generera med `openssl rand -base64 48` |
 | `GOOGLE_CLIENT_ID` | För riktig Google | Från steg 4 |

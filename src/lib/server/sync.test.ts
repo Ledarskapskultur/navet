@@ -59,3 +59,23 @@ describe("Google Tasks sync (demo provider)", () => {
     expect((await svc.syncGoogle()).updated).toBe(0);
   });
 });
+
+describe("personal mode (no Google)", () => {
+  const me = { mode: "personal" as const, userId: "me" as const, session: null };
+
+  it("works without any Google provider", async () => {
+    const svc = await NavetService.create(me);
+    expect((await svc.listProjects()).length).toBe(5);
+    const welcome = await svc.listItems();
+    expect(welcome).toHaveLength(1);
+
+    const item = await svc.createItem({ title: "Ring Johan", dueDate: "2026-10-08" }, { syncToGoogle: true });
+    expect(item.externalId).toBeNull();
+    const done = await svc.updateItem(item.id, { status: "done", title: "Ring Johan om avtalet" });
+    expect(done).toMatchObject({ status: "done", title: "Ring Johan om avtalet" });
+    expect(await svc.syncGoogle()).toMatchObject({ imported: 0, updated: 0, removed: 0 });
+    expect(await svc.listGoogleLists()).toEqual([]);
+    await svc.deleteItem(item.id);
+    expect((await svc.listItems()).some((i) => i.id === item.id)).toBe(false);
+  });
+});

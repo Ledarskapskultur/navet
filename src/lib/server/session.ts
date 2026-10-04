@@ -2,7 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import type { SessionUser } from "../types";
 import { decrypt, encrypt } from "./crypto";
-import { secureCookies } from "./env";
+import { env, secureCookies } from "./env";
 
 export const SESSION_COOKIE = "navet_session";
 const MAX_AGE = 60 * 60 * 24 * 180;
@@ -22,6 +22,7 @@ export interface Session {
 
 export type RequestContext =
   | { mode: "google"; userId: string; session: Session }
+  | { mode: "personal"; userId: "me"; session: null }
   | { mode: "demo"; userId: "demo"; session: null };
 
 export async function readSession(): Promise<Session | null> {
@@ -50,5 +51,7 @@ export async function clearSession(): Promise<void> {
 export async function getContext(): Promise<RequestContext> {
   const session = await readSession();
   if (session) return { mode: "google", userId: `google:${session.user.id}`, session };
-  return { mode: "demo", userId: "demo", session: null };
+  if (env.demoMode) return { mode: "demo", userId: "demo", session: null };
+  // Default: Navet on its own, no Google account needed.
+  return { mode: "personal", userId: "me", session: null };
 }

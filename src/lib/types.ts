@@ -107,9 +107,15 @@ export interface SessionUser {
 }
 
 export interface AppStatus {
-  mode: "google" | "demo";
+  /** personal = Navet on its own (default), google = logged in with Google Tasks sync, demo = sample data */
+  mode: "personal" | "google" | "demo";
   user: SessionUser | null;
+  /** True when Google Tasks (real or simulated) is available in this mode */
+  googleEnabled: boolean;
+  passwordProtected: boolean;
   googleConfigured: boolean;
   outlookConfigured: boolean;
   storage: "supabase" | "file";
+  /** False when data lives in a temporary folder (file storage on Vercel) and may disappear */
+  storageDurable: boolean;
 }

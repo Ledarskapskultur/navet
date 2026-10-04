@@ -6,6 +6,7 @@ import { useNavet } from "@/components/navet-provider";
 import { ItemList } from "@/components/item-row";
 import { Button, Card, Notice, PageHeader, Section, inputClass } from "@/components/ui";
 import { GoogleTasksIcon } from "@/components/icons";
+import { VoiceLaunchSetting } from "@/components/voice-launch-setting";
 import { byNewest } from "@/lib/selectors";
 
 const steps = [
@@ -15,7 +16,86 @@ const steps = [
   { title: "Projekt · uppgift · åtagande · idé", text: "Du sorterar i Inkorgen. Navet föreslår typ och projekt utifrån orden. Klar-markering och ändringar skickas tillbaka till Google.", icon: <span className="text-sm font-semibold">✓</span> },
 ];
 
+const personalSteps = [
+  { title: "”Hey Google, öppna Navet”", text: "Telefonens assistent öppnar den installerade Navet-appen.", icon: <Mic className="size-5" /> },
+  { title: "Navet lyssnar", text: "Säg det du vill komma ihåg, t.ex. ”Ring Johan på torsdag” eller ”Jag lovade Anna att skicka offerten på fredag”.", icon: <span className="size-3 rounded-full border-[2.5px] border-white" />, accent: true },
+  { title: "Inkorgen", text: "Efter tre sekunder sparas det i Inkorgen. Tryck på skärmen innan dess om du vill ändra något.", icon: <span className="text-sm font-semibold">↓</span> },
+  { title: "Uppgift · åtagande · idé · projekt", text: "Navet föreslår typ, datum, person och projekt utifrån orden. Du sorterar när det passar.", icon: <span className="text-sm font-semibold">✓</span> },
+];
+
 export default function VoicePage() {
+  const { status } = useNavet();
+  if (status && !status.googleEnabled) return <PersonalVoicePage />;
+  return <GoogleVoicePage />;
+}
+
+function PersonalVoicePage() {
+  const { items, openCapture } = useNavet();
+  const spoken = items.filter((i) => i.source === "voice").sort(byNewest).slice(0, 8);
+  return (
+    <div>
+      <PageHeader title="Röst" subtitle="Fånga saker med rösten – utan att röra telefonen mer än nödvändigt." />
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <Steps steps={personalSteps} />
+        <div className="space-y-6">
+          <Section title="Ställ in en gång" className="mb-0">
+            <div className="space-y-4">
+              <Notice tone="muted">
+                1. Installera Navet på hemskärmen (Chrome-menyn ⋮ → <em>Installera app</em>).
+                <br />
+                2. Öppna den installerade appen och slå på inställningen nedan.
+              </Notice>
+              <VoiceLaunchSetting />
+            </div>
+          </Section>
+          <Section title="Prova direkt" className="mb-0">
+            <Button variant="primary" onClick={() => openCapture("", { voice: true })} className="w-full">
+              <Mic className="size-4" /> Tala in nu
+            </Button>
+          </Section>
+        </div>
+      </div>
+      <Section title="Senast inpratat" count={spoken.length} className="mt-12">
+        <ItemList items={spoken} empty={<p className="text-sm text-ink-3">Inget inpratat ännu.</p>} />
+      </Section>
+    </div>
+  );
+}
+
+function Steps({ steps }: { steps: { title: string; text: string; icon: React.ReactNode; accent?: boolean }[] }) {
+  return (
+    <ol className="space-y-0">
+      {steps.map((s, i) => (
+        <li key={s.title}>
+          <Card className={s.accent ? "border-accent/30 p-5" : "p-5"}>
+            <div className="flex gap-4">
+              <span
+                className={
+                  s.accent
+                    ? "flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white"
+                    : "flex size-10 shrink-0 items-center justify-center rounded-xl bg-subtle text-ink-2"
+                }
+              >
+                {s.icon}
+              </span>
+              <div>
+                <p className="font-semibold">{s.title}</p>
+                <p className="mt-1 text-sm leading-relaxed text-ink-2">{s.text}</p>
+              </div>
+            </div>
+          </Card>
+          {i < steps.length - 1 && (
+            <div className="flex justify-center py-2 text-ink-3">
+              <ArrowDown className="size-5" />
+            </div>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function GoogleVoicePage() {
   const { items, status, simulateVoice, syncNow, syncing } = useNavet();
   const [text, setText] = useState("Påminn mig att skicka brevet till Anna idag");
   const fromGoogle = items.filter((i) => i.source === "google_tasks").sort(byNewest).slice(0, 8);
@@ -28,34 +108,7 @@ export default function VoicePage() {
       />
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <ol className="space-y-0">
-          {steps.map((s, i) => (
-            <li key={s.title}>
-              <Card className={s.accent ? "border-accent/30 p-5" : "p-5"}>
-                <div className="flex gap-4">
-                  <span
-                    className={
-                      s.accent
-                        ? "flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white"
-                        : "flex size-10 shrink-0 items-center justify-center rounded-xl bg-subtle text-ink-2"
-                    }
-                  >
-                    {s.icon}
-                  </span>
-                  <div>
-                    <p className="font-semibold">{s.title}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-ink-2">{s.text}</p>
-                  </div>
-                </div>
-              </Card>
-              {i < steps.length - 1 && (
-                <div className="flex justify-center py-2 text-ink-3">
-                  <ArrowDown className="size-5" />
-                </div>
-              )}
-            </li>
-          ))}
-        </ol>
+        <Steps steps={steps} />
 
         <div>
           <Section title={status?.mode === "demo" ? "Prova flödet (demo)" : "Prova flödet"}>

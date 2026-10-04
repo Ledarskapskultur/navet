@@ -7,8 +7,12 @@ import { GoogleTasksClient } from "./tasks-client";
 import { MockTasksProvider } from "./mock-tasks";
 import { GoogleAuthError, type TasksProvider } from "./types";
 
-/** Returns the real Google Tasks client when logged in, otherwise the demo mock. */
-export function getTasksProvider(ctx: RequestContext, store: NavetStore): TasksProvider {
+/**
+ * Returns the real Google Tasks client when logged in, the simulated one in demo
+ * mode, and null in personal mode (Navet without Google).
+ */
+export function getTasksProvider(ctx: RequestContext, store: NavetStore): TasksProvider | null {
+  if (ctx.mode === "personal") return null;
   if (ctx.mode === "demo") return new MockTasksProvider(store, ctx.userId);
 
   const session = ctx.session;

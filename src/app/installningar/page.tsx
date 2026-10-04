@@ -1,12 +1,12 @@
 "use client";
 
-import { Suspense, useState, useSyncExternalStore } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Database, LogOut, Mail, Mic, RotateCcw, Smartphone } from "lucide-react";
+import { CalendarDays, Database, Lock, LogOut, Mail, RotateCcw, ShieldAlert, Smartphone } from "lucide-react";
 import { useNavet } from "@/components/navet-provider";
 import { Button, Card, Notice, PageHeader, Section, inputClass } from "@/components/ui";
 import { GoogleTasksIcon } from "@/components/icons";
-import { setVoiceOnLaunch, subscribeVoiceOnLaunch, voiceOnLaunchEnabled } from "@/lib/voice-launch";
+import { VoiceLaunchSetting } from "@/components/voice-launch-setting";
 
 const ERRORS: Record<string, string> = {
   google_not_configured: "Google OAuth är inte konfigurerat. Lägg till GOOGLE_CLIENT_ID och GOOGLE_CLIENT_SECRET i .env.local.",
@@ -18,97 +18,54 @@ const ERRORS: Record<string, string> = {
 };
 
 function SettingsView() {
-  const { status, sync, setDefaultList, resetDemo, logout } = useNavet();
+  const { status, sync, setDefaultList, resetDemo, logout, lock } = useNavet();
   const params = useSearchParams();
   const error = params.get("error");
   const [confirmReset, setConfirmReset] = useState(false);
 
   return (
     <div>
-      <PageHeader title="Inställningar" subtitle="Kopplingar, lagring och installation." />
+      <PageHeader title="Inställningar" subtitle="Röst, säkerhet, lagring och installation." />
       {error && (
         <div className="mb-6 rounded-2xl border border-warn/20 bg-warn-soft px-4 py-3 text-sm text-warn">{ERRORS[error] ?? `Fel: ${error}`}</div>
       )}
 
-      <Section title="Google">
-        <Card className="space-y-5 p-5">
-          <div className="flex items-start gap-3">
-            <GoogleTasksIcon className="mt-0.5 size-6" />
-            <div className="flex-1">
-              <p className="font-medium">Google-konto & Google Tasks</p>
-              {status?.mode === "google" ? (
-                <p className="text-sm text-ink-2">
-                  Inloggad som <strong>{status.user?.name}</strong> ({status.user?.email})
-                </p>
-              ) : status?.googleConfigured ? (
-                <p className="text-sm text-ink-2">Inte inloggad – du använder demoläget.</p>
-              ) : (
-                <p className="text-sm text-ink-2">Google OAuth är inte konfigurerat ännu – appen körs i demoläge.</p>
-              )}
-            </div>
-          </div>
-
-          {status?.mode === "google" ? (
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => logout()}>
-                <LogOut className="size-4" /> Logga ut
-              </Button>
-            </div>
-          ) : status?.googleConfigured ? (
-            <a href="/api/auth/google" className="inline-flex h-10 items-center gap-2 rounded-xl bg-accent px-4 text-[15px] font-medium text-white hover:bg-accent-strong">
-              Logga in med Google
-            </a>
-          ) : (
-            <Notice tone="muted">
-              Lägg till följande i <code>.env.local</code> och starta om servern (se README för steg-för-steg):
-              <pre className="mt-2 overflow-x-auto rounded-lg bg-surface p-3 text-xs text-ink">{`GOOGLE_CLIENT_ID=...apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=...
-SESSION_SECRET=<minst 32 slumpmässiga tecken>
-APP_URL=http://localhost:3000`}</pre>
-            </Notice>
-          )}
-
-          {(sync?.lists.length ?? 0) > 0 && (
-            <label className="block max-w-sm">
-              <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-3">Standardlista för nya uppgifter</span>
-              <select className={inputClass} value={sync?.defaultListId ?? ""} onChange={(e) => setDefaultList(e.target.value)}>
-                {sync?.lists.map((l) => (
-                  <option key={l.id} value={l.id}>{l.title}</option>
-                ))}
-              </select>
-            </label>
-          )}
-        </Card>
+      <Section title="Röst">
+        <VoiceLaunchSetting />
       </Section>
 
-      <Section title="Microsoft 365">
-        <Card className="space-y-3 p-5 text-sm text-ink-2">
-          <p className="flex items-center gap-2 font-medium text-ink">
-            <CalendarDays className="size-4" /> Outlook-kalender <Mail className="ml-2 size-4" /> Flaggade mail
-          </p>
-          <p>
-            Kommer i nästa steg via Microsoft Graph. Koden är förberedd i <code>src/lib/integrations/microsoft</code>.{" "}
-            {status?.outlookConfigured ? "Credentials hittades i miljön." : "Inga Microsoft-credentials konfigurerade."}
-          </p>
-        </Card>
+      <Section title="Säkerhet">
+        {status?.passwordProtected ? (
+          <Card className="flex flex-wrap items-center justify-between gap-3 p-5 text-sm text-ink-2">
+            <p className="flex items-center gap-2">
+              <Lock className="size-4 text-accent" /> Navet är skyddat med lösenord. Den här enheten är upplåst.
+            </p>
+            <Button onClick={() => lock()}>Lås Navet</Button>
+          </Card>
+        ) : (
+          <Notice tone="muted" icon={<ShieldAlert className="size-4" />}>
+            <strong className="text-ink">Inget lösenord är satt.</strong> Alla som har länken kan se och ändra din Navet. Lägg till
+            miljövariabeln <code>APP_PASSWORD</code> i Vercel (Settings → Environment Variables) och gör en ny deploy.
+          </Notice>
+        )}
       </Section>
 
       <Section title="Lagring">
         <Card className="flex items-start gap-3 p-5 text-sm text-ink-2">
           <Database className="mt-0.5 size-5 text-ink-3" />
           <div>
-            <p className="font-medium text-ink">{status?.storage === "supabase" ? "Supabase (Postgres)" : "Lokal fil (.navet-data/store.json)"}</p>
+            <p className="font-medium text-ink">
+              {status?.storage === "supabase" ? "Supabase-databas" : status?.storageDurable ? "Lokal fil" : "Tillfällig lagring"}
+            </p>
             <p className="mt-1">
               {status?.storage === "supabase"
-                ? "Data lagras i din Supabase-databas."
-                : "Bra för lokal utveckling. Sätt SUPABASE_URL och SUPABASE_SERVICE_ROLE_KEY för produktion."}
+                ? "Allt du sparar ligger kvar i din databas."
+                : status?.storageDurable
+                  ? "Data sparas i .navet-data/store.json på datorn som kör Navet."
+                  : "Varning: på Vercel sparas data bara tillfälligt och kan försvinna. Koppla en Supabase-databas (SUPABASE_URL och SUPABASE_SERVICE_ROLE_KEY) innan du börjar använda Navet på riktigt."}
             </p>
           </div>
         </Card>
-      </Section>
-
-      <Section title="Röst">
-        <VoiceLaunchSetting />
       </Section>
 
       <Section title="Installera på mobilen">
@@ -116,9 +73,54 @@ APP_URL=http://localhost:3000`}</pre>
           <Smartphone className="mt-0.5 size-5 text-ink-3" />
           <p>
             Android (Chrome): öppna Navet → menyn ⋮ → <strong>Installera app</strong> / <strong>Lägg till på startskärmen</strong>.
-            iPhone (Safari): Dela → <strong>Lägg till på hemskärmen</strong>. Kräver https (t.ex. efter deploy till Vercel).
+            iPhone (Safari): Dela → <strong>Lägg till på hemskärmen</strong>.
           </p>
         </Card>
+      </Section>
+
+      <Section title="Kopplingar (valfritt)">
+        <div className="space-y-3">
+          <Card className="space-y-4 p-5">
+            <div className="flex items-start gap-3">
+              <GoogleTasksIcon className="mt-0.5 size-6" />
+              <div className="flex-1 text-sm text-ink-2">
+                <p className="font-medium text-ink">Google Tasks</p>
+                {status?.mode === "google" ? (
+                  <p>
+                    Inloggad som <strong>{status.user?.name}</strong> ({status.user?.email})
+                  </p>
+                ) : (
+                  <p>Inte kopplat. Navet fungerar fullt ut utan Google – det här behövs bara om du vill synka med Google Tasks.</p>
+                )}
+              </div>
+            </div>
+            {status?.mode === "google" ? (
+              <Button onClick={() => logout()}>
+                <LogOut className="size-4" /> Koppla från Google
+              </Button>
+            ) : status?.googleConfigured ? (
+              <a href="/api/auth/google" className="inline-flex h-9 items-center rounded-xl border border-line px-3 text-sm font-medium text-ink hover:bg-subtle">
+                Koppla Google Tasks
+              </a>
+            ) : null}
+            {(sync?.lists.length ?? 0) > 0 && (
+              <label className="block max-w-sm">
+                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-3">Standardlista för nya uppgifter</span>
+                <select className={inputClass} value={sync?.defaultListId ?? ""} onChange={(e) => setDefaultList(e.target.value)}>
+                  {sync?.lists.map((l) => (
+                    <option key={l.id} value={l.id}>{l.title}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </Card>
+          <Card className="space-y-2 p-5 text-sm text-ink-2">
+            <p className="flex items-center gap-2 font-medium text-ink">
+              <CalendarDays className="size-4" /> Outlook-kalender <Mail className="ml-2 size-4" /> Flaggade mail
+            </p>
+            <p>Kommer senare via Microsoft Graph. Kalendern och mailsidan visar exempel tills dess.</p>
+          </Card>
+        </div>
       </Section>
 
       {status?.mode === "demo" && (
@@ -146,35 +148,5 @@ export default function SettingsPage() {
     <Suspense>
       <SettingsView />
     </Suspense>
-  );
-}
-
-function VoiceLaunchSetting() {
-  const on = useSyncExternalStore(subscribeVoiceOnLaunch, voiceOnLaunchEnabled, () => false);
-
-  return (
-    <Card className="space-y-4 p-5 text-sm text-ink-2">
-      <label className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          checked={on}
-          onChange={(e) => setVoiceOnLaunch(e.target.checked)}
-          className="mt-0.5 size-4 accent-[#2f5d4e]"
-        />
-        <span>
-          <span className="flex items-center gap-2 font-medium text-ink">
-            <Mic className="size-4" /> Starta röst när Navet öppnas
-          </span>
-          <span className="mt-1 block">
-            Gäller den installerade appen på den här enheten. Säg <strong className="text-ink">”Hey Google, öppna Navet”</strong>,
-            prata in det du vill komma ihåg, så sparas det i inkorgen efter tre sekunder.
-          </span>
-        </span>
-      </label>
-      <p>
-        Du kan också hålla fingret på Navet-ikonen och välja <strong className="text-ink">Tala in</strong>, eller dra ut den
-        genvägen till hemskärmen. Första gången frågar telefonen om lov att använda mikrofonen.
-      </p>
-    </Card>
   );
 }

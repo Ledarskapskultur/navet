@@ -1,7 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { GoogleApiError, GoogleAuthError } from "../integrations/google/types";
-import { googleConfigured, outlookConfigured } from "./env";
+import { env, googleConfigured, outlookConfigured } from "./env";
 import { NavetService, NotFoundError } from "./service";
 import { clearSession, getContext } from "./session";
 import type { AppStatus } from "../types";
@@ -36,9 +36,12 @@ export async function appStatus(svc: NavetService): Promise<AppStatus> {
   return {
     mode: ctx.mode,
     user: ctx.mode === "google" ? ctx.session.user : null,
+    googleEnabled: ctx.mode !== "personal",
+    passwordProtected: Boolean(env.appPassword),
     googleConfigured: googleConfigured(),
     outlookConfigured: outlookConfigured(),
     storage: svc.storageKind,
+    storageDurable: svc.storageKind === "supabase" || !process.env.VERCEL,
   };
 }
 

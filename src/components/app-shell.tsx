@@ -36,7 +36,8 @@ interface NavItem {
 }
 
 function useNav() {
-  const { items } = useNavet();
+  const { items, status } = useNavet();
+  const google = !!status?.googleEnabled;
   const inbox = items.filter((i) => i.status === "inbox").length;
   const main: NavItem[] = [
     { href: "/", label: "Idag", icon: Sun },
@@ -50,8 +51,8 @@ function useNav() {
     { href: "/mail", label: "Mail att hantera", icon: Mail },
   ];
   const integrations: NavItem[] = [
-    { href: "/google-tasks", label: "Google Tasks", icon: GoogleTasksIcon },
-    { href: "/rost-google", label: "Röst & Google", icon: Mic },
+    ...(google ? [{ href: "/google-tasks", label: "Google Tasks", icon: GoogleTasksIcon }] : []),
+    { href: "/rost-google", label: google ? "Röst & Google" : "Röst", icon: Mic },
     { href: "/installningar", label: "Inställningar", icon: Settings },
   ];
   return { main, integrations };
@@ -167,6 +168,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const bottom: NavItem[] = [main[0], main[1], main[2]];
 
+  // The unlock page is shown on its own, without navigation.
+  if (pathname === "/logga-in") {
+    return <main className="mx-auto max-w-5xl px-4">{children}</main>;
+  }
+
   return (
     <div className="min-h-dvh">
       {/* Desktop sidebar */}
@@ -185,7 +191,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {main.map((item) => (
             <NavLink key={item.href} item={item} />
           ))}
-          <p className="px-3 pb-2 pt-6 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">Integrationer</p>
+          <p className="px-3 pb-2 pt-6 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">Mer</p>
           {integrations.map((item) => (
             <NavLink key={item.href} item={item} />
           ))}
@@ -193,7 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mt-4 border-t border-line px-2 pt-4">
           <SyncStatus />
           <p className="mt-2 truncate text-xs text-ink-3">
-            {status?.mode === "google" ? status.user?.email : "Demoläge"}
+            {status?.mode === "google" ? status.user?.email : status?.mode === "demo" ? "Demoläge" : "Personlig arbetsyta"}
           </p>
         </div>
       </aside>
@@ -256,7 +262,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {main.map((item) => (
                 <NavLink key={item.href} item={item} onClick={() => setMoreOpen(false)} />
               ))}
-              <p className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">Integrationer</p>
+              <p className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">Mer</p>
               {integrations.map((item) => (
                 <NavLink key={item.href} item={item} onClick={() => setMoreOpen(false)} />
               ))}

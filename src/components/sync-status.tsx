@@ -15,6 +15,8 @@ export function SyncStatus({ compact }: { compact?: boolean }) {
     return () => clearInterval(t);
   }, []);
 
+  if (!status?.googleEnabled) return null;
+
   const label = syncing
     ? "Synkar…"
     : sync?.lastError
