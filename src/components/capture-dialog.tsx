@@ -2,8 +2,11 @@
 
 import clsx from "clsx";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Mic, MicOff, Sparkles, Volume2 } from "lucide-react";
-import { announceReady, READY_PROMPT } from "@/lib/speech";
+import { MessageCircle, Mic, MicOff, Sparkles, Volume2 } from "lucide-react";
+import { announceReady, READY_PROMPT, speak } from "@/lib/speech";
+import { interpret, type Reply } from "@/lib/assistant/rules";
+import { useRouter } from "next/navigation";
+import { ItemList } from "./item-row";
 import { voiceGreetingEnabled } from "@/lib/voice-launch";
 import { parseCapture } from "@/lib/parser";
 import { ITEM_TYPES, type ItemType } from "@/lib/types";
@@ -51,7 +54,8 @@ const SILENCE_MS = 2000;
 const MAX_ROUNDS = 15;
 
 function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boolean }) {
-  const { projects, sync, createItem, closeCapture, notify, status } = useNavet();
+  const { projects, items, sync, createItem, updateItem, closeCapture, notify, status } = useNavet();
+  const router = useRouter();
   const [text, setText] = useState(initial);
   const [override, setOverride] = useState<Override>({});
   const [sortNow, setSortNow] = useState(false);
@@ -67,14 +71,29 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
   // Hands-free: countdown to auto-save after you stop talking (null = no countdown running).
   const [countdown, setCountdown] = useState<number | null>(null);
   const [micBlocked, setMicBlocked] = useState(false);
-  const [announcing, setAnnouncing] = useState(false);
+  /** What Navet is saying right now (shown while speaking), or null */
+  const [saying, setSaying] = useState<string | null>(null);
+  /** The last question Navet answered / action it took, shown in the dialog */
+  const [answer, setAnswer] = useState<Reply | null>(null);
+  /** User chose to save the text as a new item even though it looked like a question */
+  const [forceCapture, setForceCapture] = useState(false);
   const heardRef = useRef("");
+  /** Number of follow-up turns in a hands-free conversation */
+  const turnRef = useRef(0);
+  const [followUp, setFollowUp] = useState(false);
+  // Latest data for callbacks created earlier (speech recognition handlers).
+  const dataRef = useRef({ items, projects });
+  useEffect(() => {
+    dataRef.current = { items, projects };
+  }, [items, projects]);
 
   useEffect(() => {
     if (!handsFree) inputRef.current?.focus();
   }, [handsFree]);
 
   const parsed = useMemo(() => parseCapture(text, projects), [text, projects]);
+  // Questions and commands ("Vad har jag idag?", "Visa inkorgen") are answered instead of saved.
+  const reply = useMemo(() => (forceCapture ? null : interpret(text, { items, projects })), [forceCapture, text, items, projects]);
   const result = { ...parsed, ...override };
   const project = projects.find((p) => p.id === result.projectId);
   const googleDefault = lists.length > 0 && (result.type === "task" || result.type === "reminder" || result.type === "commitment");
@@ -83,6 +102,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
   const onText = (v: string) => {
     setText(v);
     setCountdown(null);
+    setForceCapture(false);
     setOverride((o) => {
       // keep manual choices except title, which follows the text
       const { title: _title, ...rest } = o;
@@ -141,7 +161,16 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
         return;
       }
       setListening(false);
-      if (autoSave && !stoppedRef.current && heardRef.current.trim()) setCountdown(AUTO_SAVE_SECONDS);
+      if (!autoSave || stoppedRef.current) return;
+      const heard = heardRef.current.trim();
+      if (!heard) {
+        // Silence after "Något mer?" ends the conversation.
+        if (turnRef.current > 0) closeCapture();
+        return;
+      }
+      const r = interpret(heard, dataRef.current);
+      if (r) void runReply(r, true);
+      else setCountdown(AUTO_SAVE_SECONDS);
     };
     rec.onerror = (e) => {
       if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
@@ -178,10 +207,10 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
     // Deferred one tick so the dialog has rendered first.
     const t = setTimeout(async () => {
       if (voiceGreetingEnabled()) {
-        setAnnouncing(true);
+        setSaying(READY_PROMPT);
         await announceReady();
         if (cancelled) return;
-        setAnnouncing(false);
+        setSaying(null);
       }
       startListening(true);
     }, 0);
@@ -194,6 +223,51 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const say = async (words: string) => {
+    setSaying(words);
+    await speak(words);
+    setSaying(null);
+  };
+
+  /** Hands-free: ask for more and listen again; silence closes the dialog. */
+  const continueConversation = async () => {
+    turnRef.current += 1;
+    setFollowUp(true);
+    setText("");
+    setOverride({});
+    await say("Något mer?");
+    if (!stoppedRef.current) startListening(true);
+  };
+
+  const runReply = async (r: Reply, spoken: boolean) => {
+    setCountdown(null);
+    if (r.kind === "navigate") {
+      router.push(r.href);
+      if (spoken) await say(r.speech);
+      closeCapture();
+      return;
+    }
+    if (r.kind === "stop") {
+      if (spoken) await say(r.speech);
+      closeCapture();
+      return;
+    }
+    if (r.kind === "complete") {
+      const ok = await updateItem(r.item.id, { status: "done" });
+      const done: Reply = ok
+        ? { kind: "answer", speech: r.speech, items: [], title: "Klart" }
+        : { kind: "answer", speech: "Det gick inte att bocka av just nu.", items: [], title: "Något gick fel" };
+      setAnswer(done);
+      setText("");
+      if (spoken) await say(done.speech);
+    } else {
+      setAnswer(r);
+      setText("");
+      if (spoken) await say(r.speech);
+    }
+    if (handsFree && spoken) await continueConversation();
+  };
 
   const save = async () => {
     setCountdown(null);
@@ -222,6 +296,12 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
     setSaving(false);
     if (created) {
       notify(syncToGoogle ? `Fångad – även i Google Tasks` : sortNow ? "Sparad" : "Sparad i inkorgen");
+      if (handsFree && usedVoice) {
+        setAnswer({ kind: "answer", speech: `Sparat: ${created.title}.`, items: [created], title: "Sparat i inkorgen" });
+        await say(`Sparat: ${created.title}.`);
+        await continueConversation();
+        return;
+      }
       closeCapture();
     }
   };
@@ -238,7 +318,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
 
   return (
     <div className="space-y-5 pb-2 pt-1" onPointerDown={() => countdown !== null && setCountdown(null)}>
-      {handsFree && (announcing || listening || countdown !== null || micBlocked) && (
+      {handsFree && (saying || listening || countdown !== null || micBlocked) && (
         <div
           role="status"
           className={clsx(
@@ -248,10 +328,10 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
         >
           {micBlocked ? (
             <>Tryck på mikrofonen för att prata. Första gången frågar telefonen om lov att använda mikrofonen.</>
-          ) : announcing ? (
+          ) : saying ? (
             <>
               <Volume2 className="size-4 shrink-0 text-accent" />
-              {READY_PROMPT}
+              {saying}
             </>
           ) : listening ? (
             <>
@@ -259,7 +339,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />
                 <span className="relative inline-flex size-3 rounded-full bg-accent" />
               </span>
-              Lyssnar … säg vad du vill komma ihåg
+              {followUp ? "Lyssnar … fråga något mer, eller säg ”klart”" : "Lyssnar … fråga något eller säg vad du vill komma ihåg"}
             </>
           ) : (
             <>Sparar i inkorgen om {countdown} s · tryck var som helst för att ändra</>
@@ -275,11 +355,12 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              void save();
+              if (reply) void runReply(reply, usedVoice);
+              else void save();
             }
           }}
           rows={2}
-          placeholder="Vad vill du komma ihåg?"
+          placeholder="Vad vill du komma ihåg? Eller fråga: Vad har jag idag?"
           className="w-full resize-none rounded-2xl border border-line bg-canvas px-4 py-3.5 pr-12 text-lg leading-snug text-ink placeholder:text-ink-3 focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent-soft"
         />
         {speechSupported && (
@@ -306,7 +387,16 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
         </div>
       )}
 
-      {text.trim() && (
+      {/* Navet's answer to a question / result of a command */}
+      {(reply && reply.kind !== "stop" ? reply : !text.trim() ? answer : null) && (
+        <AssistantPanel
+          reply={(reply && reply.kind !== "stop" ? reply : answer)!}
+          preview={!!reply}
+          onSaveInstead={reply ? () => setForceCapture(true) : undefined}
+        />
+      )}
+
+      {text.trim() && !reply && (
         <div className="animate-in rounded-2xl border border-line bg-canvas/70 p-4">
           <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-ink-3">
             <Sparkles className="size-3.5" /> Navets tolkning
@@ -379,6 +469,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
         </div>
       )}
 
+      {!reply && (
       <div className="space-y-3">
         <label className="flex items-center gap-2.5 text-sm text-ink-2">
           <input type="checkbox" checked={sortNow} onChange={(e) => setSortNow(e.target.checked)} className="size-4 accent-[#2f5d4e]" />
@@ -401,16 +492,49 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
           </div>
         )}
       </div>
+      )}
 
       <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
-        <p className="hidden text-xs text-ink-3 sm:block">Enter sparar · Esc stänger</p>
+        <p className="hidden text-xs text-ink-3 sm:block">{reply ? "Enter kör · Esc stänger" : "Enter sparar · Esc stänger"}</p>
         <div className="ml-auto flex gap-2">
-          <Button variant="ghost" onClick={closeCapture}>Avbryt</Button>
-          <Button variant="primary" onClick={save} disabled={!result.title.trim() || saving}>
-            {saving ? "Sparar…" : "Spara"}
-          </Button>
+          <Button variant="ghost" onClick={closeCapture}>{reply || answer ? "Stäng" : "Avbryt"}</Button>
+          {reply && (reply.kind === "navigate" || reply.kind === "complete") ? (
+            <Button variant="primary" onClick={() => void runReply(reply, usedVoice)}>
+              {reply.kind === "navigate" ? "Öppna" : "Bocka av"}
+            </Button>
+          ) : !reply ? (
+            <Button variant="primary" onClick={save} disabled={!result.title.trim() || saving}>
+              {saving ? "Sparar…" : "Spara"}
+            </Button>
+          ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function AssistantPanel({ reply, preview, onSaveInstead }: { reply: Reply; preview: boolean; onSaveInstead?: () => void }) {
+  const items = "items" in reply ? reply.items : reply.kind === "complete" ? [reply.item] : [];
+  const title =
+    "title" in reply ? reply.title : reply.kind === "navigate" ? "Öppna sida" : reply.kind === "complete" ? "Bocka av" : "";
+  const speech =
+    preview && reply.kind === "complete" ? `Bocka av ”${reply.item.title}”?` : preview && reply.kind === "navigate" ? reply.speech.replace(/^Öppnar/, "Öppna") : reply.speech;
+  return (
+    <div className="animate-in rounded-2xl border border-accent/20 bg-accent-soft/50 p-4">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-accent-strong">
+        <MessageCircle className="size-3.5" /> {title}
+      </div>
+      <p className="text-[15px] leading-relaxed text-ink">{speech}</p>
+      {items.length > 0 && reply.kind !== "complete" && (
+        <div className="mt-3">
+          <ItemList items={items.slice(0, 8)} compact />
+        </div>
+      )}
+      {onSaveInstead && (
+        <button onClick={onSaveInstead} className="mt-3 text-sm text-ink-2 underline underline-offset-2 hover:text-ink">
+          Spara texten som en ny sak i stället
+        </button>
+      )}
     </div>
   );
 }

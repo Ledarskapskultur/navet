@@ -16,6 +16,19 @@ const steps = [
   { title: "Projekt · uppgift · åtagande · idé", text: "Du sorterar i Inkorgen. Navet föreslår typ och projekt utifrån orden. Klar-markering och ändringar skickas tillbaka till Google.", icon: <span className="text-sm font-semibold">✓</span> },
 ];
 
+const VOICE_EXAMPLES = [
+  "Vad har jag idag?",
+  "Vad har jag imorgon?",
+  "Vad är försenat?",
+  "Vilka förfrågningar har jag?",
+  "Vad väntar jag på?",
+  "Vad har jag lovat?",
+  "Vad händer i UGL?",
+  "Visa inkorgen",
+  "Markera ring Johan som klar",
+  "Vad kan jag säga?",
+];
+
 const personalSteps = [
   { title: "”Hey Google, öppna Navet”", text: "Telefonens assistent öppnar den installerade Navet-appen.", icon: <Mic className="size-5" /> },
   { title: "Navet lyssnar", text: "Säg det du vill komma ihåg, t.ex. ”Ring Johan på torsdag” eller ”Jag lovade Anna att skicka offerten på fredag”.", icon: <span className="size-3 rounded-full border-[2.5px] border-white" />, accent: true },
@@ -47,6 +60,21 @@ function PersonalVoicePage() {
               </Notice>
               <VoiceLaunchSetting />
             </div>
+          </Section>
+          <Section title="Fråga Navet" className="mb-0">
+            <Card className="space-y-3 p-5 text-sm text-ink-2">
+              <p>Du kan också ställa frågor och ge kommandon – med rösten eller genom att skriva i Fånga:</p>
+              <ul className="grid gap-1.5 sm:grid-cols-2">
+                {VOICE_EXAMPLES.map((ex) => (
+                  <li key={ex}>
+                    <button onClick={() => openCapture(ex)} className="text-left text-ink underline decoration-line-strong underline-offset-2 hover:decoration-accent">
+                      ”{ex}”
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p>Efter varje svar frågar Navet ”Något mer?”. Säg <strong className="text-ink">klart</strong> eller <strong className="text-ink">tack</strong> för att avsluta.</p>
+            </Card>
           </Section>
           <Section title="Prova direkt" className="mb-0">
             <Button variant="primary" onClick={() => openCapture("", { voice: true })} className="w-full">

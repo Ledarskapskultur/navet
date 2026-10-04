@@ -135,7 +135,7 @@ export function extractDate(input: string, now: Date = new Date()): DateMatch {
   return { date, time, text };
 }
 
-function findProject(text: string, projects: Project[]): { project: Project | null; text: string } {
+export function findProject(text: string, projects: Project[]): { project: Project | null; text: string } {
   const lower = text.toLowerCase();
   let best: { project: Project; term: string } | null = null;
   for (const p of projects) {
