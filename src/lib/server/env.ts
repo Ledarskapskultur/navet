@@ -14,6 +14,10 @@ export const env = {
   dataDir: process.env.NAVET_DATA_DIR || null,
   /** Optional password that protects the whole app */
   appPassword: process.env.APP_PASSWORD || null,
+  /** Secret token for the voice/assistant API used by Tasker and other automations */
+  apiToken: process.env.NAVET_API_TOKEN || null,
+  /** Time zone used for "idag"/"imorgon" when there is no browser (e.g. Tasker) */
+  timeZone: process.env.NAVET_TIMEZONE || "Europe/Stockholm",
   /** Show sample data and a simulated Google Tasks instead of the personal workspace */
   demoMode: process.env.NAVET_DEMO === "1",
   isProd: process.env.NODE_ENV === "production",
@@ -41,4 +45,12 @@ export function appUrl(req: Request): string {
   const proto = req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? url.host;
   return `${proto}://${host}`;
+}
+
+/**
+ * "Now" as wall-clock time in the user's time zone. The server runs in UTC, but date
+ * logic ("idag", "på torsdag") must follow the user's calendar.
+ */
+export function userNow(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: env.timeZone }));
 }

@@ -69,3 +69,15 @@ describe("assistant rules", () => {
     expect(ask("Idé till UGL: gör en sida för HR")).toBeNull();
   });
 });
+
+import { savedSpeech } from "./rules";
+describe("savedSpeech", () => {
+  it("includes the date", () => {
+    expect(savedSpeech(item({ title: "Ring Johan", dueDate: "2026-10-08" }), now)).toBe("Sparat i inkorgen: Ring Johan, på torsdag.");
+    expect(savedSpeech(item({ title: "Läs boken" }), now)).toBe("Sparat i inkorgen: Läs boken.");
+  });
+  it("does not repeat the person when asking about them", () => {
+    const r = interpret("Vad har jag lovat Martin?", ctx);
+    expect(r && "speech" in r && r.speech).toBe("Du har lovat en sak till Martin: Skicka presentationen imorgon.");
+  });
+});

@@ -22,5 +22,5 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   // Everything except the login page/route, static files, icons, manifest and service worker.
-  matcher: ["/((?!logga-in|api/auth/unlock|api/inbound/|navet-form.js|_next/|icons/|manifest.webmanifest|sw.js|favicon).*)"],
+  matcher: ["/((?!logga-in|api/auth/unlock|api/inbound/|api/assistant|navet-form.js|_next/|icons/|manifest.webmanifest|sw.js|favicon).*)"],
 };

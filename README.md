@@ -338,3 +338,9 @@ Utan skriptet fungerar formuläret ändå: besökaren skickas tillbaka till sida
 **Skydd:** formulärsadressen behöver inget lösenord, men har en spamfälla, gräns på 10 förfrågningar per 10 minuter och IP, samt valfri lista över tillåtna webbplatser i `FORM_ALLOWED_ORIGINS` (t.ex. `https://uglsverige.store,https://ledarskapskultur.se`).
 
 > Koppla inte in formulären förrän Navet har en riktig databas (Supabase). Utan den kan förfrågningar försvinna på Vercel.
+
+---
+
+## Röst när telefonen är låst (Tasker)
+
+Navet har ett röst-API (`POST /api/assistant`, skyddat med `NAVET_API_TOKEN`) som Tasker kan anropa i bakgrunden – du kan fråga Navet och spara saker utan att låsa upp telefonen. Steg-för-steg: [docs/tasker.md](docs/tasker.md).

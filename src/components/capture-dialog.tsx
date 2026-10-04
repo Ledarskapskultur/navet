@@ -4,11 +4,12 @@ import clsx from "clsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageCircle, Mic, MicOff, Sparkles, Volume2 } from "lucide-react";
 import { announceReady, READY_PROMPT, speak } from "@/lib/speech";
-import { interpret, type Reply } from "@/lib/assistant/rules";
+import { interpret, savedSpeech, type Reply } from "@/lib/assistant/rules";
 import { useRouter } from "next/navigation";
 import { ItemList } from "./item-row";
 import { voiceGreetingEnabled } from "@/lib/voice-launch";
 import { parseCapture } from "@/lib/parser";
+import { captureToItem } from "@/lib/capture";
 import { ITEM_TYPES, type ItemType } from "@/lib/types";
 import { TYPE_LABEL } from "@/lib/labels";
 import { formatDue } from "@/lib/dates";
@@ -275,30 +276,16 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
     setSaving(true);
     const status = sortNow ? (result.type === "waiting" ? "waiting" : "open") : "inbox";
     const created = await createItem(
-      {
-        title: result.title,
-        type: result.type,
-        status,
-        source: usedVoice ? "voice" : "manual",
-        projectId: result.projectId,
-        // For booking requests the spoken date is the requested event date, not a deadline.
-        dueDate: result.type === "request" ? null : result.dueDate,
-        dueTime: result.type === "request" ? null : result.dueTime,
-        eventDate: result.type === "request" ? result.dueDate : null,
-        stage: result.type === "request" ? "new" : null,
-        contact: result.type === "request" && result.person ? { name: result.person, email: null, phone: null, organization: null } : null,
-        person: result.person,
-        waitingFor: result.waitingFor,
-        priority: parsed.priority,
-      },
+      captureToItem({ ...result, priority: parsed.priority }, { source: usedVoice ? "voice" : "manual", status }),
       syncToGoogle ? { syncToGoogle: true, listId } : {},
     );
     setSaving(false);
     if (created) {
       notify(syncToGoogle ? `Fångad – även i Google Tasks` : sortNow ? "Sparad" : "Sparad i inkorgen");
       if (handsFree && usedVoice) {
-        setAnswer({ kind: "answer", speech: `Sparat: ${created.title}.`, items: [created], title: "Sparat i inkorgen" });
-        await say(`Sparat: ${created.title}.`);
+        const confirmation = savedSpeech(created);
+        setAnswer({ kind: "answer", speech: confirmation, items: [created], title: "Sparat i inkorgen" });
+        await say(confirmation);
         await continueConversation();
         return;
       }

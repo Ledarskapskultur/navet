@@ -54,11 +54,17 @@ export function spokenDate(iso: string, now = new Date()): string {
   return `den ${format(parseISO(iso), "d MMMM", { locale: sv })}`;
 }
 
-function describe(item: NavetItem, now: Date, withDate = true): string {
+/** "Sparat i inkorgen: Ring Johan, på torsdag." */
+export function savedSpeech(item: NavetItem, now = new Date()): string {
+  const when = item.eventDate ?? item.dueDate;
+  return `Sparat i inkorgen: ${item.title}${when ? `, ${spokenDate(when, now)}` : ""}.`;
+}
+
+function describe(item: NavetItem, now: Date, withDate = true, withPerson = true): string {
   let s = item.title;
   if (item.type === "request" && item.contact?.name && !s.includes(item.contact.name)) s += ` från ${item.contact.name}`;
   if (item.type === "waiting" && item.waitingFor) s = `${item.waitingFor}: ${item.title}`;
-  if (item.type === "commitment" && item.person) s += ` till ${item.person}`;
+  if (withPerson && item.type === "commitment" && item.person) s += ` till ${item.person}`;
   if (withDate && item.dueDate) {
     s += isOverdue(item, toISODate(now)) ? `, försenad sedan ${spokenDate(item.dueDate, now)}` : ` ${spokenDate(item.dueDate, now)}`;
   }
@@ -66,8 +72,8 @@ function describe(item: NavetItem, now: Date, withDate = true): string {
   return s;
 }
 
-function list(items: NavetItem[], now: Date, withDate = true): string {
-  const shown = items.slice(0, MAX_SPOKEN).map((i) => describe(i, now, withDate));
+function list(items: NavetItem[], now: Date, withDate = true, withPerson = true): string {
+  const shown = items.slice(0, MAX_SPOKEN).map((i) => describe(i, now, withDate, withPerson));
   const rest = items.length - shown.length;
   if (rest > 0) shown.push(`och ${rest} till`);
   if (shown.length === 1) return shown[0];
@@ -243,7 +249,7 @@ export function interpret(text: string, ctx: AssistantContext): Reply | null {
     return {
       kind: "answer",
       speech: commitments.length
-        ? `Du har lovat ${count(commitments.length, "sak", "saker")}${target}: ${list(commitments, now)}.`
+        ? `Du har lovat ${count(commitments.length, "sak", "saker")}${target}: ${list(commitments, now, true, !target)}.`
         : `Du har inga öppna löften${target}.`,
       items: commitments,
       title: "Åtaganden",
