@@ -42,7 +42,7 @@ export function mostImportant(items: NavetItem[], n = 5, today = todayISO()) {
     .filter(
       (i) =>
         (isActionable(i) && (isOverdue(i, today) || isDueToday(i, today) || i.priority === "high")) ||
-        (isActive(i) && i.type === "request" && i.stage === "new"),
+        (isActive(i) && i.type === "request" && i.stage === "new" && i.priority === "high"),
     )
     .sort((a, b) => score(b) - score(a) || byDue(a, b))
     .slice(0, n);

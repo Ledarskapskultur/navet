@@ -22,6 +22,8 @@ export interface InboundForm {
   participants?: string;
   message?: string;
   page?: string;
+  /** "signup" for newsletter/watch-list sign-ups (not urgent); default is a booking request */
+  kind?: string;
   /** Honeypot – real visitors never fill this in */
   website?: string;
 }
@@ -77,7 +79,8 @@ export function formToRequest(sourceKey: string, raw: InboundForm): Partial<Nave
     status: "inbox",
     source: "web_form",
     stage: "new",
-    priority: "high",
+    // Bookings and questions need an answer soon; newsletter sign-ups don't.
+    priority: raw.kind === "signup" ? "normal" : "high",
     projectId: source.projectId,
     person: name,
     eventDate,

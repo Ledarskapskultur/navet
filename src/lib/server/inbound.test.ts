@@ -41,3 +41,10 @@ describe("formToRequest", () => {
     );
   });
 });
+
+describe("sign-ups", () => {
+  it("are not marked urgent", () => {
+    expect(formToRequest("ugl", { email: "a@b.se", subject: "Nyhetsbrev", kind: "signup" }).priority).toBe("normal");
+    expect(formToRequest("ugl", { email: "a@b.se", subject: "Bokning" }).priority).toBe("high");
+  });
+});
