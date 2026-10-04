@@ -106,6 +106,9 @@ export interface CalendarEvent {
   end: string; // ISO
   location?: string;
   attendees?: string[];
+  allDay?: boolean;
+  /** Open in Outlook */
+  link?: string;
   source: "demo" | "outlook_calendar";
 }
 
@@ -116,6 +119,8 @@ export interface FlaggedMail {
   subject: string;
   preview: string;
   receivedAt: string;
+  /** Open in Outlook */
+  link?: string;
   source: "demo" | "outlook_mail";
 }
 
@@ -135,6 +140,8 @@ export interface AppStatus {
   passwordProtected: boolean;
   googleConfigured: boolean;
   outlookConfigured: boolean;
+  /** Connected Outlook account, or null */
+  outlook: { name: string; email: string } | null;
   storage: "supabase" | "file";
   /** False when data lives in a temporary folder (file storage on Vercel) and may disappear */
   storageDurable: boolean;

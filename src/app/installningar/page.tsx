@@ -14,6 +14,11 @@ const ERRORS: Record<string, string> = {
   token_exchange: "Kunde inte hämta token från Google. Kontrollera client secret och redirect-URL.",
   tasks_scope_missing: "Du behöver godkänna åtkomst till Google Tasks för att Navet ska fungera.",
   session_secret: "SESSION_SECRET saknas eller är kortare än 32 tecken. Lägg till den i miljövariablerna.",
+  outlook_not_configured: "Outlook är inte konfigurerat. Lägg till MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET och MICROSOFT_TENANT_ID i Vercel.",
+  ms_token_exchange: "Kunde inte slutföra kopplingen till Outlook. Kontrollera client secret och redirect-URL i Entra.",
+  ms_access_denied: "Du avbröt kopplingen till Outlook, eller så saknas administratörsgodkännande i Entra.",
+  ms_consent_required: "Appen behöver administratörsgodkännande i Entra (Grant admin consent).",
+  ms_invalid_request: "Microsoft avvisade inloggningen. Kontrollera redirect-URL:en i Entra.",
   access_denied: "Du avbröt inloggningen hos Google.",
 };
 
@@ -114,12 +119,7 @@ function SettingsView() {
               </label>
             )}
           </Card>
-          <Card className="space-y-2 p-5 text-sm text-ink-2">
-            <p className="flex items-center gap-2 font-medium text-ink">
-              <CalendarDays className="size-4" /> Outlook-kalender <Mail className="ml-2 size-4" /> Flaggade mail
-            </p>
-            <p>Kommer senare via Microsoft Graph. Kalendern och mailsidan visar exempel tills dess.</p>
-          </Card>
+          <OutlookCard />
         </div>
       </Section>
 
@@ -148,5 +148,52 @@ export default function SettingsPage() {
     <Suspense>
       <SettingsView />
     </Suspense>
+  );
+}
+
+function OutlookCard() {
+  const { status, refresh, notify } = useNavet();
+  const [busy, setBusy] = useState(false);
+  const account = status?.outlook;
+  const disconnect = async () => {
+    setBusy(true);
+    await fetch("/api/auth/microsoft/disconnect", { method: "POST" });
+    await refresh();
+    setBusy(false);
+    notify("Outlook frånkopplat");
+  };
+  return (
+    <Card className="space-y-4 p-5 text-sm text-ink-2">
+      <div>
+        <p className="flex items-center gap-2 font-medium text-ink">
+          <CalendarDays className="size-4" /> Outlook-kalender <Mail className="ml-2 size-4" /> Flaggade mail
+        </p>
+        {account ? (
+          <p className="mt-1">
+            Kopplat till <strong className="text-ink">{account.name}</strong> ({account.email}). Navet läser din kalender och dina
+            flaggade mail – det ändrar ingenting i Outlook.
+          </p>
+        ) : status?.outlookConfigured ? (
+          <p className="mt-1">Inte kopplat. Kalendern och mailsidan visar exempel tills du kopplar Outlook.</p>
+        ) : (
+          <p className="mt-1">
+            Lägg först in <code>MICROSOFT_CLIENT_ID</code>, <code>MICROSOFT_CLIENT_SECRET</code> och{" "}
+            <code>MICROSOFT_TENANT_ID</code> i Vercel (se guiden docs/outlook.md) och gör en ny deploy.
+          </p>
+        )}
+      </div>
+      {account ? (
+        <Button size="sm" onClick={disconnect} disabled={busy}>
+          Koppla från Outlook
+        </Button>
+      ) : status?.outlookConfigured ? (
+        <a
+          href="/api/auth/microsoft"
+          className="inline-flex h-10 items-center rounded-xl bg-accent px-4 text-[15px] font-medium text-white hover:bg-accent-strong"
+        >
+          Koppla Outlook
+        </a>
+      ) : null}
+    </Card>
   );
 }

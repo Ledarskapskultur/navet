@@ -344,3 +344,9 @@ Utan skriptet fungerar formuläret ändå: besökaren skickas tillbaka till sida
 ## Röst när telefonen är låst (Tasker)
 
 Navet har ett röst-API (`POST /api/assistant`, skyddat med `NAVET_API_TOKEN`) som Tasker kan anropa i bakgrunden – du kan fråga Navet och spara saker utan att låsa upp telefonen. Steg-för-steg: [docs/tasker.md](docs/tasker.md).
+
+---
+
+## Outlook (kalender och flaggade mail)
+
+Navet läser Outlook-kalendern och flaggade mail via Microsoft Graph (läsbehörighet). Kopplingen sparas krypterad på servern och gäller alla enheter. Steg-för-steg för Entra och Vercel: [docs/outlook.md](docs/outlook.md).

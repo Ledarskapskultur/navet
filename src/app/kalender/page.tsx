@@ -16,7 +16,9 @@ export default function CalendarPage() {
   const { items, openItem } = useNavet();
   const [offset, setOffset] = useState(0);
   const weekStart = useMemo(() => addDays(startOfWeek(startOfDay(new Date()), { weekStartsOn: 1 }), offset * 7), [offset]);
-  const events = useCalendar(weekStart, 7);
+  const calendar = useCalendar(weekStart, 7);
+  const events = calendar.data;
+  const { status } = useNavet();
   const today = todayISO();
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -38,15 +40,27 @@ export default function CalendarPage() {
         }
       />
       <div className="mb-8">
-        <Notice icon={<CalendarClock className="size-4" />}>
-          <strong className="font-semibold">Outlook-integration kommer senare.</strong> Mötena nedan är demodata. Arkitekturen är
-          förberedd för Microsoft Graph (<code className="text-xs">/me/calendarView</code>) – dina deadlines från Navet visas redan på riktigt.
-        </Notice>
+        {calendar.error ? (
+          <Notice icon={<CalendarClock className="size-4" />}>
+            <strong className="font-semibold">{calendar.error}</strong>
+          </Notice>
+        ) : calendar.provider === "outlook" ? (
+          <Notice tone="muted" icon={<CalendarClock className="size-4" />}>
+            Möten från Outlook{status?.outlook ? ` (${status.outlook.email})` : ""} tillsammans med dina deadlines i Navet. Tryck på ett möte för att öppna det i Outlook.
+          </Notice>
+        ) : (
+          <Notice icon={<CalendarClock className="size-4" />}>
+            <strong className="font-semibold">Mötena nedan är exempel.</strong> Koppla Outlook under{" "}
+            <a href="/installningar" className="underline underline-offset-2">Inställningar</a> så visas din riktiga kalender här – dina deadlines från Navet visas redan.
+          </Notice>
+        )}
       </div>
       <div className="space-y-3">
         {days.map((day) => {
           const iso = toISODate(day);
-          const dayEvents = (events ?? []).filter((e) => toISODate(new Date(e.start)) === iso);
+          const dayEvents = (events ?? [])
+            .filter((e) => (e.allDay ? e.start.slice(0, 10) : toISODate(new Date(e.start))) === iso)
+            .sort((a, b) => Number(!!b.allDay) - Number(!!a.allDay) || (a.start < b.start ? -1 : 1));
           const dayItems = items.filter((i) => i.dueDate === iso && isActive(i));
           const isToday = iso === today;
           return (
@@ -67,10 +81,16 @@ export default function CalendarPage() {
                 {dayEvents.map((e) => (
                   <div key={e.id} className="flex gap-3 text-[15px]">
                     <span className="w-24 shrink-0 tabular-nums text-ink-2">
-                      {formatTime(e.start)}–{formatTime(e.end)}
+                      {e.allDay ? "Heldag" : `${formatTime(e.start)}–${formatTime(e.end)}`}
                     </span>
                     <span className="text-ink">
-                      {e.title}
+                      {e.link ? (
+                        <a href={e.link} target="_blank" rel="noreferrer" className="hover:underline">
+                          {e.title}
+                        </a>
+                      ) : (
+                        e.title
+                      )}
                       {e.location && <span className="text-ink-3"> · {e.location}</span>}
                     </span>
                   </div>

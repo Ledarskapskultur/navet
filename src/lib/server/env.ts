@@ -32,7 +32,7 @@ export const outlookConfigured = () => Boolean(env.msClientId && env.msClientSec
 
 export function sessionSecret(): string {
   if (env.sessionSecret && env.sessionSecret.length >= 32) return env.sessionSecret;
-  if (env.isProd && googleConfigured()) {
+  if (env.isProd && (googleConfigured() || outlookConfigured())) {
     throw new Error("SESSION_SECRET måste vara satt (minst 32 tecken) i produktion.");
   }
   // Development fallback so the app runs without configuration.

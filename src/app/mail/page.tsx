@@ -10,7 +10,8 @@ import { formatDue, relativeTime } from "@/lib/dates";
 import type { FlaggedMail } from "@/lib/types";
 
 export default function MailPage() {
-  const mails = useFlaggedMail();
+  const mail = useFlaggedMail();
+  const mails = mail.data;
   return (
     <div>
       <PageHeader
@@ -18,13 +19,28 @@ export default function MailPage() {
         subtitle="Flaggade mail från Outlook blir förslag på uppgifter, åtaganden och idéer – du bestämmer vad som ska in i Navet."
       />
       <div className="mb-8">
-        <Notice icon={<Plug className="size-4" />}>
-          <strong className="font-semibold">Outlook är ännu inte aktivt.</strong> Det här är en förhandsvisning med exempelmail.
-          När Microsoft Graph kopplas in hämtas dina flaggade mail (<code className="text-xs">flag/flagStatus eq &apos;flagged&apos;</code>) automatiskt.
-        </Notice>
+        {mail.error ? (
+          <Notice icon={<Plug className="size-4" />}>
+            <strong className="font-semibold">{mail.error}</strong>
+          </Notice>
+        ) : mail.provider === "outlook" ? (
+          <Notice tone="muted" icon={<Flag className="size-4" />}>
+            Dina flaggade mail i Outlook. När du har hanterat ett mail – ta bort flaggan i Outlook så försvinner det härifrån.
+          </Notice>
+        ) : (
+          <Notice icon={<Plug className="size-4" />}>
+            <strong className="font-semibold">Exempelmail.</strong> Koppla Outlook under{" "}
+            <a href="/installningar" className="underline underline-offset-2">Inställningar</a> så visas dina riktiga flaggade mail här.
+          </Notice>
+        )}
       </div>
       <div className="space-y-4">
         {mails === null && <div className="h-48 animate-pulse rounded-2xl bg-sunken/60" />}
+        {mails?.length === 0 && !mail.error && (
+          <p className="rounded-2xl border border-dashed border-line-strong px-6 py-10 text-center text-sm text-ink-2">
+            Inga flaggade mail just nu.
+          </p>
+        )}
         {mails?.map((m) => (
           <MailCard key={m.id} mail={m} />
         ))}
@@ -50,7 +66,7 @@ function MailCard({ mail }: { mail: FlaggedMail }) {
       person: ai.type === "commitment" || ai.type === "task" ? mail.from.split(" ")[0] : null,
       description: `Från mail: ”${mail.subject}” – ${mail.from} <${mail.fromEmail}>\n[mail:${mail.id}]`,
     });
-    if (res) notify("Skapad i inkorgen (demo)");
+    if (res) notify("Skapad i inkorgen");
   };
 
   return (
@@ -64,7 +80,13 @@ function MailCard({ mail }: { mail: FlaggedMail }) {
           </div>
           <p className="mt-2 text-[17px] font-medium leading-snug">{mail.subject}</p>
           <p className="mt-1.5 text-sm leading-relaxed text-ink-2">{mail.preview}</p>
-          <Pill className="mt-3 border border-line text-ink-3">Demo · Outlook ej aktivt</Pill>
+          {mail.source === "demo" ? (
+            <Pill className="mt-3 border border-line text-ink-3">Exempel</Pill>
+          ) : mail.link ? (
+            <a href={mail.link} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm text-accent underline underline-offset-2">
+              Öppna i Outlook
+            </a>
+          ) : null}
         </div>
         <div className="border-t border-line bg-canvas/70 p-5 md:border-l md:border-t-0">
           <p className="mb-3 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-3">

@@ -5,8 +5,14 @@ import { addDays, startOfDay } from "date-fns";
 import { api } from "@/lib/client-api";
 import type { CalendarEvent, FlaggedMail } from "@/lib/types";
 
-export function useCalendar(from: Date = startOfDay(new Date()), days = 1) {
-  const [events, setEvents] = useState<CalendarEvent[] | null>(null);
+interface Remote<T> {
+  data: T[] | null;
+  provider: "demo" | "outlook" | null;
+  error: string | null;
+}
+
+export function useCalendar(from: Date = startOfDay(new Date()), days = 1): Remote<CalendarEvent> {
+  const [state, setState] = useState<Remote<CalendarEvent>>({ data: null, provider: null, error: null });
   const key = `${from.toISOString()}|${days}`;
   useEffect(() => {
     const [fromIso, d] = key.split("|");
@@ -16,26 +22,26 @@ export function useCalendar(from: Date = startOfDay(new Date()), days = 1) {
       tz: String(new Date().getTimezoneOffset()),
     });
     let alive = true;
-    api<{ events: CalendarEvent[] }>(`/api/calendar?${q}`)
-      .then((r) => alive && setEvents(r.events))
-      .catch(() => alive && setEvents([]));
+    api<{ events: CalendarEvent[]; provider: "demo" | "outlook"; error?: string }>(`/api/calendar?${q}`)
+      .then((r) => alive && setState({ data: r.events, provider: r.provider, error: r.error ?? null }))
+      .catch((e) => alive && setState({ data: [], provider: null, error: (e as Error).message }));
     return () => {
       alive = false;
     };
   }, [key]);
-  return events;
+  return state;
 }
 
-export function useFlaggedMail() {
-  const [mails, setMails] = useState<FlaggedMail[] | null>(null);
+export function useFlaggedMail(): Remote<FlaggedMail> {
+  const [state, setState] = useState<Remote<FlaggedMail>>({ data: null, provider: null, error: null });
   useEffect(() => {
     let alive = true;
-    api<{ mails: FlaggedMail[] }>("/api/mail")
-      .then((r) => alive && setMails(r.mails))
-      .catch(() => alive && setMails([]));
+    api<{ mails: FlaggedMail[]; provider: "demo" | "outlook"; error?: string }>("/api/mail")
+      .then((r) => alive && setState({ data: r.mails, provider: r.provider, error: r.error ?? null }))
+      .catch((e) => alive && setState({ data: [], provider: null, error: (e as Error).message }));
     return () => {
       alive = false;
     };
   }, []);
-  return mails;
+  return state;
 }

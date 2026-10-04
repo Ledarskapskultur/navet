@@ -12,7 +12,8 @@ import { byDue, byNewest, isActionable, isActive, isDueToday, isOverdue, mostImp
 
 export default function TodayPage() {
   const { items, projects, openCapture, status } = useNavet();
-  const events = useCalendar();
+  const calendar = useCalendar();
+  const events = calendar.data;
   const today = todayISO();
 
   const important = mostImportant(items, 5, today);
@@ -110,7 +111,8 @@ export default function TodayPage() {
             <Card className="p-4">
               <CalendarTimeline events={events} />
               <p className="mt-3 flex items-center gap-1.5 border-t border-line pt-3 text-xs text-ink-3">
-                <CalendarDays className="size-3.5" /> Demokalender · Outlook-integration kommer senare
+                <CalendarDays className="size-3.5" />{" "}
+                {calendar.error ?? (calendar.provider === "outlook" ? "Från din Outlook-kalender" : "Demokalender · koppla Outlook under Inställningar")}
               </p>
             </Card>
           </Section>

@@ -2,6 +2,8 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { GoogleApiError, GoogleAuthError } from "../integrations/google/types";
 import { env, googleConfigured, outlookConfigured } from "./env";
+import { getStore } from "./store";
+import { loadMsConnection } from "../integrations/microsoft/connection";
 import { NavetService, NotFoundError } from "./service";
 import { clearSession, getContext } from "./session";
 import type { AppStatus } from "../types";
@@ -40,6 +42,7 @@ export async function appStatus(svc: NavetService): Promise<AppStatus> {
     passwordProtected: Boolean(env.appPassword),
     googleConfigured: googleConfigured(),
     outlookConfigured: outlookConfigured(),
+    outlook: outlookConfigured() ? ((await loadMsConnection(await getStore()))?.account ?? null) : null,
     storage: svc.storageKind,
     storageDurable: svc.storageKind === "supabase" || !process.env.VERCEL,
   };

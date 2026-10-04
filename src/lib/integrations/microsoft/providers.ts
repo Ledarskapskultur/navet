@@ -1,5 +1,9 @@
 import "server-only";
 import type { CalendarEvent, FlaggedMail } from "../../types";
+import type { NavetStore } from "../../server/store";
+import { outlookConfigured } from "../../server/env";
+import { loadMsConnection, msAccessToken } from "./connection";
+import { graphCalendarView, graphFlaggedMail } from "./graph";
 
 export interface CalendarProvider {
   readonly kind: "demo" | "outlook";
@@ -109,12 +113,27 @@ export class DemoMailProvider implements MailProvider {
   }
 }
 
-export function getCalendarProvider(): CalendarProvider {
-  // When Microsoft Graph is connected: return an OutlookCalendarProvider that
-  // wraps graphCalendarView() with the user's access token.
-  return new DemoCalendarProvider();
+class OutlookCalendarProvider implements CalendarProvider {
+  readonly kind = "outlook" as const;
+  constructor(private store: NavetStore) {}
+  async listEvents(from: Date, to: Date) {
+    return graphCalendarView(await msAccessToken(this.store), from, to);
+  }
 }
 
-export function getMailProvider(): MailProvider {
-  return new DemoMailProvider();
+class OutlookMailProvider implements MailProvider {
+  readonly kind = "outlook" as const;
+  constructor(private store: NavetStore) {}
+  async listFlagged() {
+    return graphFlaggedMail(await msAccessToken(this.store));
+  }
+}
+
+/** Outlook when connected, otherwise demo data. */
+export async function getCalendarProvider(store: NavetStore): Promise<CalendarProvider> {
+  return outlookConfigured() && (await loadMsConnection(store)) ? new OutlookCalendarProvider(store) : new DemoCalendarProvider();
+}
+
+export async function getMailProvider(store: NavetStore): Promise<MailProvider> {
+  return outlookConfigured() && (await loadMsConnection(store)) ? new OutlookMailProvider(store) : new DemoMailProvider();
 }
