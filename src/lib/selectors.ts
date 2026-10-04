@@ -5,6 +5,8 @@ export const isActive = (i: NavetItem) => i.status !== "done" && i.status !== "a
 export const isActionable = (i: NavetItem) =>
   isActive(i) && (i.type === "task" || i.type === "reminder" || i.type === "commitment");
 
+export const isOpenRequest = (i: NavetItem) => i.type === "request" && isActive(i) && i.stage !== "booked" && i.stage !== "declined";
+
 export function isOverdue(i: NavetItem, today = todayISO()) {
   return isActive(i) && !!i.dueDate && i.dueDate < today;
 }
@@ -37,7 +39,11 @@ export function mostImportant(items: NavetItem[], n = 5, today = todayISO()) {
     (i.type === "commitment" ? 5 : 0) +
     (i.dueDate && i.dueDate <= today ? 0 : -5);
   return items
-    .filter((i) => isActionable(i) && (isOverdue(i, today) || isDueToday(i, today) || i.priority === "high"))
+    .filter(
+      (i) =>
+        (isActionable(i) && (isOverdue(i, today) || isDueToday(i, today) || i.priority === "high")) ||
+        (isActive(i) && i.type === "request" && i.stage === "new"),
+    )
     .sort((a, b) => score(b) - score(a) || byDue(a, b))
     .slice(0, n);
 }

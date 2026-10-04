@@ -215,6 +215,10 @@ export function parseCapture(input: string, projects: Project[] = [], now: Date 
     type = "idea";
     text = text.slice(m[0].length);
     hints.push("”idé” → idé");
+  } else if ((m = text.match(/^\s*(?:bokningsförfrågan|förfrågan|bokning|ny bokning)\b\s*:?\s*/i))) {
+    type = "request";
+    text = text.slice(m[0].length);
+    hints.push("”förfrågan” → förfrågan");
   } else if ((m = text.match(/^\s*(?:anteckning|notering|not|obs)\b\s*:?\s*/i))) {
     type = "note";
     text = text.slice(m[0].length);

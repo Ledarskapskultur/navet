@@ -296,3 +296,45 @@ För att koppla in Outlook på riktigt:
 2. Lägg till en OAuth-route enligt samma mönster som Google och spara tokens i sessionen.
 3. Låt `getCalendarProvider()` och `getMailProvider()` returnera Graph-implementationer när användaren är inloggad.
 4. ”Skapa i Navet” på mailsidan skapar redan objekt med `source: "outlook_mail"`.
+
+---
+
+## Förfrågningar från landningssidor
+
+Bokningsformulär på t.ex. UGLsverige.store och Ledarskapskulturs hemsida kan skicka förfrågningar direkt till Navet. De hamnar under **Förfrågningar** (och i Inkorgen) med kund, kontaktuppgifter, önskat datum och projekt, och följer flödet *Ny → Besvarad → Bokad / Avböjd*.
+
+| Formulärets adress | Projekt i Navet |
+|---|---|
+| `https://DIN-NAVET/api/inbound/ugl` | UGL Sverige |
+| `https://DIN-NAVET/api/inbound/ledarskapsmetoden` | Ledarskapsmetoden |
+| `https://DIN-NAVET/api/inbound/dj` | Trolleri & DJ |
+| `https://DIN-NAVET/api/inbound/allmant` | (inget projekt) |
+
+Nya källor läggs till i `src/lib/server/inbound.ts`.
+
+**Exempel på formulär** (fungerar på vilken sida som helst):
+
+```html
+<form data-navet action="https://navet-orcin.vercel.app/api/inbound/ugl" method="post">
+  <input name="subject" type="hidden" value="Företagsintern UGL">
+  <input name="name" placeholder="Namn" required>
+  <input name="organization" placeholder="Organisation">
+  <input name="email" type="email" placeholder="E-post" required>
+  <input name="phone" type="tel" placeholder="Telefon">
+  <input name="date" type="date">
+  <input name="participants" type="number" placeholder="Antal deltagare">
+  <textarea name="message" placeholder="Meddelande"></textarea>
+  <!-- fälla för spam-robotar: ska vara dold och tom -->
+  <input name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px">
+  <button type="submit">Skicka förfrågan</button>
+  <p data-navet-error hidden></p>
+  <p data-navet-thanks hidden>Tack! Vi återkommer inom kort.</p>
+</form>
+<script src="https://navet-orcin.vercel.app/navet-form.js" defer></script>
+```
+
+Utan skriptet fungerar formuläret ändå: besökaren skickas tillbaka till sidan (eller till adressen i ett dolt fält `redirect`).
+
+**Skydd:** formulärsadressen behöver inget lösenord, men har en spamfälla, gräns på 10 förfrågningar per 10 minuter och IP, samt valfri lista över tillåtna webbplatser i `FORM_ALLOWED_ORIGINS` (t.ex. `https://uglsverige.store,https://ledarskapskultur.se`).
+
+> Koppla inte in formulären förrän Navet har en riktig databas (Supabase). Utan den kan förfrågningar försvinna på Vercel.

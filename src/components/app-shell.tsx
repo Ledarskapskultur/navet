@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  CalendarCheck,
   CalendarDays,
   FolderKanban,
   Handshake,
@@ -42,6 +43,7 @@ function useNav() {
   const main: NavItem[] = [
     { href: "/", label: "Idag", icon: Sun },
     { href: "/inkorg", label: "Inkorg", icon: Inbox, count: inbox || undefined },
+    { href: "/forfragningar", label: "Förfrågningar", icon: CalendarCheck, count: items.filter((i) => i.type === "request" && isActive(i) && (i.stage ?? "new") === "new").length || undefined },
     { href: "/att-gora", label: "Att göra", icon: ListChecks },
     { href: "/vantar-pa", label: "Väntar på", icon: Hourglass, count: items.filter((i) => i.type === "waiting" && isActive(i)).length || undefined },
     { href: "/ataganden", label: "Åtaganden", icon: Handshake },
@@ -166,7 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [openCapture]);
 
-  const bottom: NavItem[] = [main[0], main[1], main[2]];
+  const bottom = ["/", "/inkorg", "/att-gora"].map((href) => main.find((m) => m.href === href)!);
 
   // The unlock page is shown on its own, without navigation.
   if (pathname === "/logga-in") {

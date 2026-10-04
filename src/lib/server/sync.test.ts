@@ -65,7 +65,7 @@ describe("personal mode (no Google)", () => {
 
   it("works without any Google provider", async () => {
     const svc = await NavetService.create(me);
-    expect((await svc.listProjects()).length).toBe(5);
+    expect((await svc.listProjects()).map((p) => p.name)).toContain("Trolleri & DJ");
     const welcome = await svc.listItems();
     expect(welcome).toHaveLength(1);
 

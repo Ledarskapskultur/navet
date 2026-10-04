@@ -13,6 +13,7 @@ import { newItem, seedDemoItems, seedMockGoogle, seedProjects, seedWelcomeItems 
 
 const SYNC_KEY = "google_sync_state";
 const SEEDED_KEY = "seeded_v1";
+const PROJECTS_V2_KEY = "projects_v2";
 
 export class NotFoundError extends Error {}
 
@@ -49,7 +50,10 @@ export class NavetService {
   }
 
   private async ensureSeeded() {
-    if (await this.store.getKV<boolean>(this.userId, SEEDED_KEY)) return;
+    if (await this.store.getKV<boolean>(this.userId, SEEDED_KEY)) {
+      await this.upgradeSeed();
+      return;
+    }
     await this.store.insertProjects(this.userId, seedProjects());
     if (this.ctx.mode === "demo") {
       await this.store.insertItems(this.userId, seedDemoItems());
@@ -58,6 +62,16 @@ export class NavetService {
       await this.store.insertItems(this.userId, seedWelcomeItems());
     }
     await this.store.setKV(this.userId, SEEDED_KEY, true);
+    await this.store.setKV(this.userId, PROJECTS_V2_KEY, true);
+  }
+
+  /** Adds projects introduced after a workspace was first created (e.g. Trolleri & DJ). */
+  private async upgradeSeed() {
+    if (await this.store.getKV<boolean>(this.userId, PROJECTS_V2_KEY)) return;
+    const existing = new Set((await this.store.listProjects(this.userId)).map((p) => p.id));
+    const missing = seedProjects().filter((p) => !existing.has(p.id));
+    await this.store.insertProjects(this.userId, missing);
+    await this.store.setKV(this.userId, PROJECTS_V2_KEY, true);
   }
 
   async resetDemo() {

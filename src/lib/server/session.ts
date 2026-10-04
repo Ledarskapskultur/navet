@@ -20,8 +20,13 @@ export interface Session {
   google: GoogleTokens;
 }
 
+// Navet is a single-person workspace: the personal and Google modes share the same
+// data ("me"), so connecting or disconnecting Google never hides anything, and
+// booking requests from landing pages always land in the same inbox.
+export const OWNER_ID = "me";
+
 export type RequestContext =
-  | { mode: "google"; userId: string; session: Session }
+  | { mode: "google"; userId: typeof OWNER_ID; session: Session }
   | { mode: "personal"; userId: "me"; session: null }
   | { mode: "demo"; userId: "demo"; session: null };
 
@@ -50,7 +55,7 @@ export async function clearSession(): Promise<void> {
 
 export async function getContext(): Promise<RequestContext> {
   const session = await readSession();
-  if (session) return { mode: "google", userId: `google:${session.user.id}`, session };
+  if (session) return { mode: "google", userId: OWNER_ID, session };
   if (env.demoMode) return { mode: "demo", userId: "demo", session: null };
   // Default: Navet on its own, no Google account needed.
   return { mode: "personal", userId: "me", session: null };

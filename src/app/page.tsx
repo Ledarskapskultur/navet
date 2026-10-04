@@ -6,14 +6,13 @@ import { useNavet } from "@/components/navet-provider";
 import { ItemList } from "@/components/item-row";
 import { Card, EmptyState, Section, Button } from "@/components/ui";
 import { CalendarTimeline } from "@/components/calendar-timeline";
-import { useCalendar, useFlaggedMail } from "@/hooks/use-remote";
+import { useCalendar } from "@/hooks/use-remote";
 import { formatLongDate, greeting, todayISO } from "@/lib/dates";
 import { byDue, byNewest, isActionable, isActive, isDueToday, isOverdue, mostImportant } from "@/lib/selectors";
 
 export default function TodayPage() {
   const { items, projects, openCapture, status } = useNavet();
   const events = useCalendar();
-  const mails = useFlaggedMail();
   const today = todayISO();
 
   const important = mostImportant(items, 5, today);
@@ -22,12 +21,13 @@ export default function TodayPage() {
   const overdue = items.filter((i) => isOverdue(i, today) && isActionable(i));
   const waiting = items.filter((i) => i.type === "waiting" && isActive(i));
   const inbox = items.filter((i) => i.status === "inbox").sort(byNewest);
+  const newRequests = items.filter((i) => i.type === "request" && isActive(i) && (i.stage ?? "new") === "new").length;
   const todayCount = items.filter((i) => isDueToday(i, today) && isActionable(i)).length;
   const firstName = status?.user?.name?.split(" ")[0];
 
   const attention = [
     { n: overdue.length, label: overdue.length === 1 ? "försenad uppgift" : "försenade uppgifter", href: "/att-gora?filter=overdue", tone: "warn" },
-    { n: mails?.length ?? 0, label: "flaggade mail (exempel)", href: "/mail", tone: "neutral" },
+    { n: newRequests, label: newRequests === 1 ? "ny förfrågan" : "nya förfrågningar", href: "/forfragningar", tone: "accent" },
     { n: waiting.length, label: waiting.length === 1 ? "sak du väntar på" : "saker du väntar på", href: "/vantar-pa", tone: "neutral" },
     { n: inbox.length, label: inbox.length === 1 ? "ny sak i inkorgen" : "nya saker i inkorgen", href: "/inkorg", tone: "accent" },
   ];

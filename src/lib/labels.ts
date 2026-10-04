@@ -1,4 +1,4 @@
-import type { ItemSource, ItemStatus, ItemType, Priority } from "./types";
+import type { ItemSource, ItemStatus, ItemType, Priority, RequestStage } from "./types";
 
 export const TYPE_LABEL: Record<ItemType, string> = {
   task: "Uppgift",
@@ -7,6 +7,14 @@ export const TYPE_LABEL: Record<ItemType, string> = {
   note: "Anteckning",
   waiting: "Väntar på",
   reminder: "Påminnelse",
+  request: "Förfrågan",
+};
+
+export const STAGE_LABEL: Record<RequestStage, string> = {
+  new: "Ny",
+  answered: "Besvarad",
+  booked: "Bokad",
+  declined: "Avböjd",
 };
 
 export const STATUS_LABEL: Record<ItemStatus, string> = {
@@ -23,6 +31,7 @@ export const SOURCE_LABEL: Record<ItemSource, string> = {
   google_tasks: "Via Google Tasks",
   outlook_mail: "Outlook-mail",
   outlook_calendar: "Outlook-kalender",
+  web_form: "Webbformulär",
 };
 
 export const PRIORITY_LABEL: Record<Priority, string> = {

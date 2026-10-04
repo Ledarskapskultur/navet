@@ -86,3 +86,11 @@ describe("interpretMail", () => {
     expect(r).toMatchObject({ type: "task", title: "Skicka offert till Anna", deadlineText: "Fredag", projectId: "ugl", dueDate: "2026-10-09" });
   });
 });
+
+describe("request capture", () => {
+  it("förfrågan with project and date", () => {
+    const djProjects = [...projects, p("dj", "Trolleri & DJ", ["dj", "bröllop"])];
+    const r = parseCapture("Förfrågan: DJ till bröllop 12 juni, Sara Lind", djProjects, now);
+    expect(r).toMatchObject({ type: "request", projectId: "dj", dueDate: "2027-06-12" });
+  });
+});

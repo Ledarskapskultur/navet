@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { FolderPlus, Link2Off, StickyNote, CircleCheck, Trash2 } from "lucide-react";
-import { ITEM_STATUSES, ITEM_TYPES, PRIORITIES, type ItemPatch, type NavetItem } from "@/lib/types";
-import { PRIORITY_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/labels";
+import { ITEM_STATUSES, ITEM_TYPES, PRIORITIES, REQUEST_STAGES, type ItemPatch, type NavetItem, type RequestStage } from "@/lib/types";
+import { PRIORITY_LABEL, STAGE_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/labels";
+import { stagePatch } from "@/lib/request-stage";
 import { relativeTime } from "@/lib/dates";
 import { useNavet } from "./navet-provider";
 import { Button, Field, inputClass, Modal, SourceBadge } from "./ui";
@@ -12,7 +13,7 @@ import { GoogleTasksIcon } from "./icons";
 type Form = Pick<
   NavetItem,
   | "title" | "description" | "type" | "status" | "projectId" | "dueDate" | "dueTime" | "priority"
-  | "estimatedTime" | "waitingFor" | "person" | "lastFollowUp"
+  | "estimatedTime" | "waitingFor" | "person" | "lastFollowUp" | "stage" | "eventDate" | "contact"
 >;
 
 const pick = (i: NavetItem): Form => ({
@@ -28,6 +29,9 @@ const pick = (i: NavetItem): Form => ({
   waitingFor: i.waitingFor,
   person: i.person,
   lastFollowUp: i.lastFollowUp,
+  stage: i.stage,
+  eventDate: i.eventDate,
+  contact: i.contact,
 });
 
 export function ItemEditor() {
@@ -56,7 +60,7 @@ function EditorBody({ item }: { item: NavetItem }) {
     const patch: ItemPatch = {};
     const merged = { ...form, ...extra } as Form;
     for (const k of Object.keys(merged) as (keyof Form)[]) {
-      if (merged[k] !== item[k]) (patch as Record<string, unknown>)[k] = merged[k];
+      if (JSON.stringify(merged[k] ?? null) !== JSON.stringify(item[k] ?? null)) (patch as Record<string, unknown>)[k] = merged[k];
     }
     const moving = linked && listId && listId !== item.externalListId;
     if (moving) patch.externalListId = listId;
@@ -181,6 +185,46 @@ function EditorBody({ item }: { item: NavetItem }) {
           </>
         )}
       </div>
+
+      {form.type === "request" && (
+        <div className="rounded-2xl border border-line p-4">
+          <p className="mb-3 text-sm font-medium">Förfrågan</p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <Field label="Läge">
+              <select
+                className={inputClass}
+                value={form.stage ?? "new"}
+                onChange={(e) => {
+                  const p = stagePatch(e.target.value as RequestStage);
+                  setForm((f) => ({ ...f, stage: p.stage!, status: p.status! }));
+                }}
+              >
+                {REQUEST_STAGES.map((s) => (
+                  <option key={s} value={s}>{STAGE_LABEL[s]}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Önskat datum">
+              <input type="date" className={inputClass} value={form.eventDate ?? ""} onChange={(e) => set("eventDate", e.target.value || null)} />
+            </Field>
+            {(["name", "organization", "email", "phone"] as const).map((k) => (
+              <Field key={k} label={{ name: "Kontaktperson", organization: "Organisation", email: "E-post", phone: "Telefon" }[k]}>
+                <input
+                  className={inputClass}
+                  type={k === "email" ? "email" : k === "phone" ? "tel" : "text"}
+                  value={form.contact?.[k] ?? ""}
+                  onChange={(e) =>
+                    set("contact", {
+                      ...(form.contact ?? { name: null, email: null, phone: null, organization: null }),
+                      [k]: e.target.value || null,
+                    })
+                  }
+                />
+              </Field>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Google Tasks */}
       {status?.googleEnabled && (

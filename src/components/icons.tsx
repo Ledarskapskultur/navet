@@ -1,5 +1,7 @@
 import {
   Bell,
+  CalendarCheck,
+  Globe,
   CalendarDays,
   CircleCheck,
   Handshake,
@@ -14,13 +16,21 @@ import {
 import type { ItemSource, ItemType } from "@/lib/types";
 
 export function TypeIcon({ type, ...props }: { type: ItemType } & LucideProps) {
-  const Icon = { task: CircleCheck, idea: Lightbulb, commitment: Handshake, note: StickyNote, waiting: Hourglass, reminder: Bell }[type];
+  const Icon = {
+    task: CircleCheck,
+    idea: Lightbulb,
+    commitment: Handshake,
+    note: StickyNote,
+    waiting: Hourglass,
+    reminder: Bell,
+    request: CalendarCheck,
+  }[type];
   return <Icon aria-hidden {...props} />;
 }
 
 export function SourceIcon({ source, ...props }: { source: ItemSource } & LucideProps) {
   if (source === "google_tasks") return <GoogleTasksIcon className={props.className} />;
-  const Icon = { manual: PenLine, voice: Mic, outlook_mail: Mail, outlook_calendar: CalendarDays }[source];
+  const Icon = { manual: PenLine, voice: Mic, outlook_mail: Mail, outlook_calendar: CalendarDays, web_form: Globe }[source];
   return <Icon aria-hidden {...props} />;
 }
 

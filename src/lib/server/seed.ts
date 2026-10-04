@@ -16,6 +16,7 @@ export function seedProjects(now = new Date()): Project[] {
     p("p-lm", "Ledarskapsmetoden", ["ledarskapsmetoden", "metoden"], "#7A6A4F", "Utveckling och leverans av Ledarskapsmetoden."),
     p("p-yh", "YH / undervisning", ["yh", "undervisning", "lektion", "kursen"], "#4F6A7A", "Undervisning, rättning och studenter."),
     p("p-ftg", "Företaget", ["företaget", "firman", "bolaget", "faktura"], "#5E5A7A", "Administration, ekonomi och försäljning."),
+    p("p-dj", "Trolleri & DJ", ["trolleri", "dj", "trollkarl", "magi", "bröllop"], "#6B7A4F", "Bokningar och uppdrag som trollkarl och DJ."),
     p("p-priv", "Privat", ["privat", "hemma"], "#8A5A5A", "Allt utanför jobbet."),
   ];
 }
@@ -36,6 +37,10 @@ export function newItem(partial: Partial<NavetItem> & { title: string }, now = n
     waitingFor: null,
     person: null,
     lastFollowUp: null,
+    stage: null,
+    contact: null,
+    eventDate: null,
+    origin: null,
     externalId: null,
     externalProvider: null,
     externalListId: null,

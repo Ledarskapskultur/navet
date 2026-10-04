@@ -3,6 +3,8 @@
 import clsx from "clsx";
 import { Check, Clock, User } from "lucide-react";
 import { isOverdue } from "@/lib/selectors";
+import { STAGE_LABEL } from "@/lib/labels";
+import { formatDue } from "@/lib/dates";
 import type { NavetItem } from "@/lib/types";
 import { useNavet } from "./navet-provider";
 import { DueBadge, Pill, PriorityBadge, ProjectBadge, SourceBadge, TypeBadge } from "./ui";
@@ -20,7 +22,7 @@ export function ItemRow({
 }) {
   const { toggleDone, openItem, projectById, listName } = useNavet();
   const done = item.status === "done";
-  const checkable = item.type !== "idea" && item.type !== "note";
+  const checkable = item.type !== "idea" && item.type !== "note" && item.type !== "request";
   const overdue = isOverdue(item);
 
   return (
@@ -48,6 +50,10 @@ export function ItemRow({
         <p className={clsx("text-[15px] leading-snug", done ? "text-ink-3 line-through" : "text-ink")}>{item.title}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           {showType && item.type !== "task" && <TypeBadge type={item.type} />}
+          {item.type === "request" && (
+            <Pill className="bg-subtle text-ink-2">{STAGE_LABEL[item.stage ?? "new"]}</Pill>
+          )}
+          {item.eventDate && <Pill className="bg-subtle text-ink-2">Önskat {formatDue(item.eventDate)}</Pill>}
           <DueBadge date={item.dueDate} time={item.dueTime} overdue={overdue} />
           <PriorityBadge priority={item.priority} />
           {item.waitingFor && (

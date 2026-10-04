@@ -1,19 +1,31 @@
 // Navet's domain model. Navet is the system of record; Google Tasks and
 // Outlook are integration sources that map onto these types.
 
-export const ITEM_TYPES = ["task", "idea", "commitment", "note", "waiting", "reminder"] as const;
+export const ITEM_TYPES = ["task", "idea", "commitment", "note", "waiting", "reminder", "request"] as const;
 export type ItemType = (typeof ITEM_TYPES)[number];
 
 export const ITEM_STATUSES = ["inbox", "open", "waiting", "done", "archived"] as const;
 export type ItemStatus = (typeof ITEM_STATUSES)[number];
 
-export const ITEM_SOURCES = ["manual", "voice", "google_tasks", "outlook_mail", "outlook_calendar"] as const;
+export const ITEM_SOURCES = ["manual", "voice", "google_tasks", "outlook_mail", "outlook_calendar", "web_form"] as const;
 export type ItemSource = (typeof ITEM_SOURCES)[number];
 
 export const PRIORITIES = ["low", "normal", "high"] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
 export type ExternalProvider = "google_tasks" | "outlook";
+
+/** Where a booking request (type = request) is in its lifecycle. */
+export const REQUEST_STAGES = ["new", "answered", "booked", "declined"] as const;
+export type RequestStage = (typeof REQUEST_STAGES)[number];
+
+/** Who a booking request is from. */
+export interface Contact {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  organization: string | null;
+}
 
 export interface NavetItem {
   id: string;
@@ -36,6 +48,14 @@ export interface NavetItem {
   person: string | null;
   /** Last follow-up date for waiting items (YYYY-MM-DD) */
   lastFollowUp: string | null;
+  /** Booking requests: lifecycle stage */
+  stage: RequestStage | null;
+  /** Booking requests: the customer */
+  contact: Contact | null;
+  /** Booking requests: requested date for the course/event (YYYY-MM-DD) */
+  eventDate: string | null;
+  /** Booking requests: which landing page / form it came from */
+  origin: string | null;
   externalId: string | null;
   externalProvider: ExternalProvider | null;
   /** Google Tasks list id when linked */

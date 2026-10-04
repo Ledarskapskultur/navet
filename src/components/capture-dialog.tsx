@@ -151,8 +151,12 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
         status,
         source: usedVoice ? "voice" : "manual",
         projectId: result.projectId,
-        dueDate: result.dueDate,
-        dueTime: result.dueTime,
+        // For booking requests the spoken date is the requested event date, not a deadline.
+        dueDate: result.type === "request" ? null : result.dueDate,
+        dueTime: result.type === "request" ? null : result.dueTime,
+        eventDate: result.type === "request" ? result.dueDate : null,
+        stage: result.type === "request" ? "new" : null,
+        contact: result.type === "request" && result.person ? { name: result.person, email: null, phone: null, organization: null } : null,
         person: result.person,
         waitingFor: result.waitingFor,
         priority: parsed.priority,
@@ -296,7 +300,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
                 <input className={inputClass} value={result.waitingFor ?? ""} onChange={(e) => setOverride((o) => ({ ...o, waitingFor: e.target.value || null }))} />
               </Field>
             ) : (
-              <Field label={result.type === "commitment" ? "Lovat till" : "Person"}>
+              <Field label={result.type === "commitment" ? "Lovat till" : result.type === "request" ? "Kund" : "Person"}>
                 <input className={inputClass} value={result.person ?? ""} onChange={(e) => setOverride((o) => ({ ...o, person: e.target.value || null }))} />
               </Field>
             )}

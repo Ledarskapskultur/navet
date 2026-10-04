@@ -92,6 +92,7 @@ const TYPE_STYLE: Record<ItemType, string> = {
   note: "bg-[#e5ebef] text-[#46606f]",
   waiting: "bg-[#f1e5e1] text-[#85513f]",
   reminder: "bg-accent-soft text-accent",
+  request: "bg-[#e2ecf0] text-[#35596a]",
 };
 
 export function Pill({ className, children, title }: { className?: string; children: ReactNode; title?: string }) {
