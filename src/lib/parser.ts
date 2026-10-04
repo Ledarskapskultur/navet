@@ -168,6 +168,28 @@ export function parseCapture(input: string, projects: Project[] = [], now: Date 
   let waitingFor: string | null = null;
   let priority: Priority = "normal";
 
+  // Spoken lead-ins: "Lägg till en uppgift att …", "Skapa en påminnelse om …", "Kan du notera …"
+  let forcedType: ItemType | null = null;
+  const lead = text.match(
+    /^\s*(?:(?:hej\s+)?navet[,!]?\s*)?(?:kan du\s+|vill du\s+)?(?:lägg(?:a)?\s+till|lägg(?:a)?\s+in|skapa|notera|skriv(?:\s+upp)?|spara|ny|nytt)\s+(?:en\s+|ett\s+)?(?:ny\s+|nytt\s+)?(uppgift|påminnelse|idé|anteckning|åtagande|förfrågan|bokning)?\s*(?:om\s+att|att|om|:)?\s*/i,
+  );
+  if (lead && lead[0].trim()) {
+    const word = lead[1]?.toLowerCase();
+    const map: Record<string, ItemType> = {
+      uppgift: "task",
+      påminnelse: "reminder",
+      idé: "idea",
+      anteckning: "note",
+      åtagande: "commitment",
+      förfrågan: "request",
+      bokning: "request",
+    };
+    if (word) forcedType = map[word];
+    const rest = text.slice(lead[0].length).trim();
+    // Keep the original if nothing meaningful follows (e.g. "Lägg till en").
+    if (rest && !/^(en|ett)$/i.test(rest)) text = rest;
+  }
+
   // Priority markers
   if (/(^|\s)(!{1,3}|viktigt|brådskande|akut|prio)(\s|$|[:,.])/i.test(text)) {
     priority = "high";
@@ -237,6 +259,11 @@ export function parseCapture(input: string, projects: Project[] = [], now: Date 
     const pm3 =
       text.match(new RegExp(`(?:^|\\s)(?:${verbs})\\s+${NAME}`)) ?? text.match(new RegExp(`\\b(?:till|med)\\s+${NAME}`));
     if (pm3 && !projects.some((p) => p.name.toLowerCase().startsWith(pm3[1].toLowerCase()))) person = pm3[1];
+  }
+
+  if (forcedType && forcedType !== type) {
+    type = forcedType;
+    hints.push(`Sagt: ${forcedType}`);
   }
 
   let title = cleanup(text.replace(/^[:\-–]\s*/, ""));

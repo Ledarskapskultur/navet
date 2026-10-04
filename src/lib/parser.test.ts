@@ -94,3 +94,19 @@ describe("request capture", () => {
     expect(r).toMatchObject({ type: "request", projectId: "dj", dueDate: "2027-06-12" });
   });
 });
+
+describe("spoken lead-ins", () => {
+  it.each([
+    ["Lägg till en uppgift att ringa Johan på torsdag", "task", "Ringa Johan", "2026-10-08"],
+    ["Skapa en påminnelse om att köpa mjölk imorgon", "reminder", "Köpa mjölk", "2026-10-06"],
+    ["Lägg till ring Johan", "task", "Ring Johan", null],
+    ["Kan du notera en idé om en podcast för chefer", "idea", "En podcast för chefer", null],
+    ["Ny förfrågan bröllop 12 juni", "request", "Bröllop", "2027-06-12"],
+  ])("%s", (input, type, title, date) => {
+    expect(parseCapture(input, projects, now)).toMatchObject({ type, title, dueDate: date });
+  });
+
+  it("does not eat a lone lead-in", () => {
+    expect(parseCapture("Lägg till en", projects, now).title).toBe("Lägg till en");
+  });
+});

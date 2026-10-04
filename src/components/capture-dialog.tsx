@@ -45,6 +45,10 @@ export function CaptureDialog() {
 
 /** Seconds before a hands-free capture saves itself. Any touch cancels it. */
 const AUTO_SAVE_SECONDS = 3;
+/** Hands-free: stop listening after this long without speech. */
+const SILENCE_MS = 2000;
+/** Hands-free: max number of pauses to listen across in one go. */
+const MAX_ROUNDS = 15;
 
 function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boolean }) {
   const { projects, sync, createItem, closeCapture, notify, status } = useNavet();
@@ -87,32 +91,66 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
     });
   };
 
+  /**
+   * Phones end speech recognition at the first short pause. In hands-free mode we keep
+   * listening across pauses (new session each time) and only stop after SILENCE_MS
+   * without speech, so a whole sentence is captured.
+   */
+  const committedRef = useRef("");
+  const stoppedRef = useRef(false);
+
   const startListening = (autoSave: boolean) => {
-    const SR = getSpeechRecognition();
-    if (!SR) return;
+    if (!getSpeechRecognition()) return;
+    committedRef.current = "";
+    heardRef.current = "";
+    stoppedRef.current = false;
+    setMicBlocked(false);
+    setListening(true);
+    listenSession(autoSave, 0);
+  };
+
+  const listenSession = (autoSave: boolean, round: number) => {
+    const first = round === 0;
+    const SR = getSpeechRecognition()!;
     const rec = new SR();
     rec.lang = "sv-SE";
     rec.interimResults = true;
     rec.continuous = false;
-    heardRef.current = "";
+    let sessionText = "";
+    let gotSpeech = false;
+    // After a pause: if nothing more is said within SILENCE_MS, we're done.
+    const silence = first ? undefined : setTimeout(() => rec.stop(), SILENCE_MS);
+
     rec.onresult = (e) => {
-      const transcript = Array.from(e.results).map((r) => r[0].transcript).join(" ");
-      heardRef.current = transcript;
-      setText(transcript);
+      clearTimeout(silence);
+      gotSpeech = true;
+      sessionText = Array.from(e.results).map((r) => r[0].transcript).join(" ").trim();
+      const full = [committedRef.current, sessionText].filter(Boolean).join(" ");
+      heardRef.current = full;
+      setText(full);
       setOverride(({ title: _t, ...rest }) => (void _t, rest));
       setUsedVoice(true);
     };
     rec.onend = () => {
+      clearTimeout(silence);
+      committedRef.current = [committedRef.current, sessionText].filter(Boolean).join(" ");
+      heardRef.current = committedRef.current;
+      const keepGoing = autoSave && gotSpeech && !stoppedRef.current && round < MAX_ROUNDS;
+      if (keepGoing) {
+        listenSession(autoSave, round + 1);
+        return;
+      }
       setListening(false);
-      if (autoSave && heardRef.current.trim()) setCountdown(AUTO_SAVE_SECONDS);
+      if (autoSave && !stoppedRef.current && heardRef.current.trim()) setCountdown(AUTO_SAVE_SECONDS);
     };
     rec.onerror = (e) => {
-      setListening(false);
-      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") setMicBlocked(true);
+      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
+        stoppedRef.current = true;
+        setMicBlocked(true);
+      }
+      // "no-speech" and other errors are followed by onend, which decides what happens next.
     };
     recRef.current = rec;
-    setListening(true);
-    setMicBlocked(false);
     try {
       rec.start();
     } catch {
@@ -125,6 +163,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
   const toggleVoice = () => {
     setCountdown(null);
     if (listening) {
+      stoppedRef.current = true;
       recRef.current?.stop();
       return;
     }
@@ -150,6 +189,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
       cancelled = true;
       clearTimeout(t);
       window.speechSynthesis?.cancel();
+      stoppedRef.current = true;
       recRef.current?.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
