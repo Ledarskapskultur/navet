@@ -2,7 +2,8 @@ import "server-only";
 
 /**
  * Thin client for LinkedIn's Member Data Portability API (Member Snapshot API).
- * Official, documented and read-only: Navet never scrapes and never changes anything on LinkedIn.
+ * Official, documented and read-only: nothing is ever changed on LinkedIn through it.
+ * (Who liked and commented on a post is not in this API; see ../apify/client.ts for that part.)
  * https://learn.microsoft.com/linkedin/dma/member-data-portability/shared/member-snapshot-api
  */
 const SNAPSHOT = "https://api.linkedin.com/rest/memberSnapshotData";
@@ -101,4 +102,34 @@ export async function fetchSnapshotPage(token: string, domain: string, start: nu
     rows: rows.filter((r): r is SnapshotRow => typeof r === "object" && r !== null && !Array.isArray(r)),
     nextStart: data ? nextStart(data) : null,
   };
+}
+
+export interface SnapshotRows {
+  rows: SnapshotRow[];
+  /** True when LinkedIn said there are no more pages */
+  complete: boolean;
+}
+
+/**
+ * Every page of a snapshot domain, up to the given limits. Stops when LinkedIn answers "no data",
+ * and also when a page without a "next" link repeats the previous one.
+ */
+export async function fetchSnapshotRows(token: string, domain: string, limits: { maxPages: number; budgetMs: number }): Promise<SnapshotRows> {
+  const started = Date.now();
+  const rows: SnapshotRow[] = [];
+  let start = 0;
+  let previous = "";
+  for (let page = 0; page < limits.maxPages; page++) {
+    if (Date.now() - started > limits.budgetMs) return { rows, complete: false };
+    const res = await fetchSnapshotPage(token, domain, start);
+    if (!res) return { rows, complete: true };
+    const signature = JSON.stringify(res.rows[0] ?? null) + res.rows.length;
+    if (res.nextStart === null && (!res.rows.length || signature === previous)) return { rows, complete: true };
+    previous = signature;
+    rows.push(...res.rows);
+    const next = res.nextStart ?? start + 1;
+    if (next <= start) return { rows, complete: true };
+    start = next;
+  }
+  return { rows, complete: false };
 }
