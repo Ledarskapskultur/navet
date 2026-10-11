@@ -167,6 +167,77 @@ export interface LinkedInContact {
   firstSeenAt: string;
 }
 
+/** Who a person engaging with a post is, seen from the owner's four target groups. */
+export const LEAD_SEGMENTS = ["yh", "public", "company", "ugl", "other"] as const;
+export type LeadSegment = (typeof LEAD_SEGMENTS)[number];
+
+/** What is known about one post after the last fetch. Counts are null when they could not be read. */
+export interface LinkedInPostStats {
+  fetchedAt: string;
+  reactions: number | null;
+  comments: number | null;
+  shares: number | null;
+  /** How many people Navet has stored for the post (the lists are capped) */
+  likersFetched: number;
+  commentersFetched: number;
+  error: string | null;
+}
+
+/** One of the owner's own LinkedIn posts. */
+export interface LinkedInPost {
+  id: string;
+  url: string;
+  /** The beginning of the post text */
+  text: string | null;
+  /** ISO timestamp when it could be read, otherwise null */
+  publishedAt: string | null;
+  visibility: string | null;
+  /** linkedin = from LinkedIn's official API, manual = the owner pasted the link */
+  source: "linkedin" | "manual";
+  addedAt: string;
+  stats: LinkedInPostStats | null;
+}
+
+/** Someone who liked or commented on a post. Fetched through Apify, not LinkedIn's official API. */
+export interface PostEngager {
+  id: string;
+  name: string;
+  /** The line under the name on LinkedIn, e.g. "HR-chef på Exempel AB" */
+  subtitle: string | null;
+  title: string | null;
+  company: string | null;
+  profileUrl: string | null;
+  kind: "liker" | "commenter";
+  comment: string | null;
+  at: string | null;
+  segment: LeadSegment;
+  firstSeenAt: string;
+}
+
+/** One person across all posts in the period. */
+export interface EngagedPerson {
+  id: string;
+  name: string;
+  subtitle: string | null;
+  title: string | null;
+  company: string | null;
+  profileUrl: string | null;
+  segment: LeadSegment;
+  likes: number;
+  comments: number;
+  /** The posts the person engaged with, newest first */
+  postIds: string[];
+  /** The newest post the person engaged with, and how */
+  latestPostId: string;
+  latestKind: "liker" | "commenter";
+  latestComment: string | null;
+  /** True when the person is among the fetched LinkedIn contacts */
+  isContact: boolean;
+  /** First seen in the latest fetch */
+  isNew: boolean;
+  firstSeenAt: string;
+}
+
 export interface SessionUser {
   id: string;
   email: string;
