@@ -14,6 +14,8 @@ export const env = {
   msTenantId: process.env.MICROSOFT_TENANT_ID?.trim() || "common",
   linkedinClientId: process.env.LINKEDIN_CLIENT_ID?.trim() || null,
   linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET?.trim() || null,
+  /** Access token for LinkedIn's Member Data Portability API, created by hand in LinkedIn's token tool */
+  linkedinAccessToken: process.env.LINKEDIN_ACCESS_TOKEN?.trim() || null,
   dataDir: process.env.NAVET_DATA_DIR || null,
   /** Optional password that protects the whole app */
   appPassword: process.env.APP_PASSWORD || null,
@@ -52,6 +54,23 @@ export function msSecretProblem(): "secret_id" | "quoted" | "too_short" | null {
 export const msSecretShape = () => `längd ${env.msClientSecret?.length ?? 0}, ${msSecretProblem() ?? "ser ut som ett Value"}`;
 
 export const linkedinConfigured = () => Boolean(env.linkedinClientId && env.linkedinClientSecret);
+
+/** LinkedIn contacts are read with a token from LinkedIn's own token tool, not through OAuth in Navet. */
+export const linkedinTokenConfigured = () => Boolean(env.linkedinAccessToken);
+
+/**
+ * Spots a mis-pasted LINKEDIN_ACCESS_TOKEN from its shape alone, without revealing it.
+ * A LinkedIn access token is one long string without spaces (several hundred characters).
+ */
+export function linkedinTokenProblem(): "quoted" | "bearer_prefix" | "whitespace" | "too_short" | null {
+  const token = env.linkedinAccessToken;
+  if (!token) return null;
+  if (/^["'].*["']$/.test(token)) return "quoted";
+  if (/^bearer\s/i.test(token)) return "bearer_prefix";
+  if (/\s/.test(token)) return "whitespace";
+  if (token.length < 40) return "too_short";
+  return null;
+}
 
 /** True when Navet is reachable from the internet (Vercel, or an https APP_URL that isn't localhost). */
 export function isPublicDeployment(): boolean {
