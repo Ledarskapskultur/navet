@@ -6,7 +6,7 @@ import { graphMe } from "@/lib/integrations/microsoft/graph";
 import { loadMsConnection, resetMsHealth, saveMsConnection } from "@/lib/integrations/microsoft/connection";
 import { msFeaturesFor, msScopesInUse, normalizeMsScopes } from "@/lib/integrations/microsoft/scopes";
 import { decrypt } from "@/lib/server/crypto";
-import { appUrl, integrationsUnlocked } from "@/lib/server/env";
+import { appUrl, integrationsUnlocked, msSecretProblem, msSecretShape } from "@/lib/server/env";
 import { getStore } from "@/lib/server/store";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +69,14 @@ export async function GET(req: Request) {
     return NextResponse.redirect(back);
   } catch (err) {
     console.error("[navet] microsoft callback", (err as Error).message);
-    return fail(err instanceof MsOAuthError && err.code === "no_refresh_token" ? "ms_no_refresh_token" : "ms_token_exchange");
+    if (!(err instanceof MsOAuthError)) return fail("ms_token_exchange");
+    if (err.code === "no_refresh_token") return fail("ms_no_refresh_token");
+    if (err.code === "invalid_client" || err.code === "unauthorized_client") {
+      // The shape (never the value) tells a pasted Secret ID from a secret that is simply wrong.
+      console.error(`[navet] microsoft callback: klienthemligheten avvisades (${msSecretShape()})`);
+      return fail(msSecretProblem() === "secret_id" ? "ms_secret_is_id" : "ms_invalid_client");
+    }
+    if (err.code === "invalid_grant") return fail("ms_invalid_grant");
+    return fail("ms_token_exchange");
   }
 }

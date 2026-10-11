@@ -298,6 +298,31 @@ describe("Mejlöversikt och status", () => {
   });
 });
 
+describe("Felklistrad klienthemlighet", () => {
+  it("känner igen ett Secret ID, citattecken och ett avklippt värde utan att visa värdet", async () => {
+    const original = envMod.env.msClientSecret;
+    try {
+      envMod.env.msClientSecret = "1b2c3d4e-5f60-4a7b-8c9d-0e1f2a3b4c5d";
+      expect(envMod.msSecretProblem()).toBe("secret_id");
+      const [mail, calendar] = await status.integrationStatuses(store, BASE);
+      expect(mail.configWarning).toMatch(/Secret ID, inte dess Value/);
+      expect(calendar.configWarning).toBe(mail.configWarning);
+      expect(JSON.stringify(mail)).not.toContain("1b2c3d4e");
+      expect(envMod.msSecretShape()).toBe("längd 36, secret_id");
+
+      envMod.env.msClientSecret = '"abc8Q~realistic-looking-secret-value-1234567"';
+      expect(envMod.msSecretProblem()).toBe("quoted");
+      envMod.env.msClientSecret = "abc8Q~short";
+      expect(envMod.msSecretProblem()).toBe("too_short");
+      envMod.env.msClientSecret = "abc8Q~realistic-looking-secret-value-1234567";
+      expect(envMod.msSecretProblem()).toBeNull();
+      expect((await status.integrationStatuses(store, BASE))[0].configWarning).toBeNull();
+    } finally {
+      envMod.env.msClientSecret = original;
+    }
+  });
+});
+
 describe("Återgång efter inloggning", () => {
   it("tillåter bara sökvägar inom Navet", () => {
     expect(flow.safeReturnPath("/kalender")).toBe("/kalender");

@@ -8,11 +8,12 @@ export const env = {
   sessionSecret: process.env.SESSION_SECRET || null,
   supabaseUrl: process.env.SUPABASE_URL || null,
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || null,
-  msClientId: process.env.MICROSOFT_CLIENT_ID || null,
-  msClientSecret: process.env.MICROSOFT_CLIENT_SECRET || null,
-  msTenantId: process.env.MICROSOFT_TENANT_ID || "common",
-  linkedinClientId: process.env.LINKEDIN_CLIENT_ID || null,
-  linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET || null,
+  // Trimmed: a pasted value easily brings a trailing space or line break along.
+  msClientId: process.env.MICROSOFT_CLIENT_ID?.trim() || null,
+  msClientSecret: process.env.MICROSOFT_CLIENT_SECRET?.trim() || null,
+  msTenantId: process.env.MICROSOFT_TENANT_ID?.trim() || "common",
+  linkedinClientId: process.env.LINKEDIN_CLIENT_ID?.trim() || null,
+  linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET?.trim() || null,
   dataDir: process.env.NAVET_DATA_DIR || null,
   /** Optional password that protects the whole app */
   appPassword: process.env.APP_PASSWORD || null,
@@ -31,6 +32,25 @@ export const secureCookies = () => (env.appUrl ? env.appUrl.startsWith("https://
 export const googleConfigured = () => Boolean(env.googleClientId && env.googleClientSecret);
 export const supabaseConfigured = () => Boolean(env.supabaseUrl && env.supabaseServiceRoleKey);
 export const outlookConfigured = () => Boolean(env.msClientId && env.msClientSecret);
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Spots a mis-pasted MICROSOFT_CLIENT_SECRET from its shape alone, without revealing it.
+ * Entra shows two things for a secret: "Value" (the secret, about 40 characters) and
+ * "Secret ID" (a GUID). Pasting the ID is the classic mistake and gives AADSTS7000215.
+ */
+export function msSecretProblem(): "secret_id" | "quoted" | "too_short" | null {
+  const secret = env.msClientSecret;
+  if (!secret) return null;
+  if (GUID.test(secret)) return "secret_id";
+  if (/^["'].*["']$/.test(secret)) return "quoted";
+  if (secret.length < 20) return "too_short";
+  return null;
+}
+
+/** Non-secret description of the configured secret, for the server log. */
+export const msSecretShape = () => `längd ${env.msClientSecret?.length ?? 0}, ${msSecretProblem() ?? "ser ut som ett Value"}`;
+
 export const linkedinConfigured = () => Boolean(env.linkedinClientId && env.linkedinClientSecret);
 
 /** True when Navet is reachable from the internet (Vercel, or an https APP_URL that isn't localhost). */

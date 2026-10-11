@@ -1,5 +1,5 @@
 import "server-only";
-import { env, integrationsUnlocked, linkedinConfigured, sessionSecretOk } from "../server/env";
+import { env, integrationsUnlocked, linkedinConfigured, msSecretProblem, sessionSecretOk } from "../server/env";
 import type { NavetStore } from "../server/store";
 import { msRedirectUri } from "./microsoft/oauth";
 import { msFeatureStatus } from "./microsoft/providers";
@@ -15,6 +15,20 @@ function msMissingConfig(): string[] {
   if (!process.env.MICROSOFT_TENANT_ID) missing.push("MICROSOFT_TENANT_ID");
   if (!sessionSecretOk()) missing.push("SESSION_SECRET");
   return missing;
+}
+
+/** Says what is wrong when MICROSOFT_CLIENT_SECRET has the wrong shape. Never includes the value. */
+export function msConfigWarning(): string | null {
+  switch (msSecretProblem()) {
+    case "secret_id":
+      return "MICROSOFT_CLIENT_SECRET innehåller hemlighetens Secret ID, inte dess Value. I Entra visas båda bredvid varandra: kopiera kolumnen Value (den som inte ser ut som xxxxxxxx-xxxx-…), lägg in den i Vercel och gör en ny deploy.";
+    case "quoted":
+      return "MICROSOFT_CLIENT_SECRET är omgiven av citattecken. Ta bort citattecknen i Vercel och gör en ny deploy.";
+    case "too_short":
+      return "MICROSOFT_CLIENT_SECRET är kortare än en klienthemlighet brukar vara. Värdet kan ha blivit avklippt: kopiera hela Value från Entra igen och gör en ny deploy.";
+    default:
+      return null;
+  }
 }
 
 function msPermissions(feature: MsFeature, granted: string[], connected: boolean): IntegrationPermission[] {
@@ -106,6 +120,7 @@ async function microsoftStatus(store: NavetStore, feature: MsFeature, baseUrl: s
     capabilities: msCapabilities(feature === "mail" ? MAIL_CAPABILITIES : CALENDAR_CAPABILITIES, granted, on && state !== "needs_reauth"),
     connectUrl: canConnect ? `/api/auth/microsoft?grant=${MS_DEFAULT_GRANT[feature]}&return=/integrationer` : null,
     missingConfig: state === "not_configured" ? msMissingConfig() : [],
+    configWarning: msConfigWarning(),
     redirectUri: msRedirectUri(baseUrl),
   };
 }
@@ -143,6 +158,7 @@ function linkedinStatus(baseUrl: string): IntegrationStatus {
     ],
     connectUrl: null,
     missingConfig: missing,
+    configWarning: null,
     redirectUri: linkedinRedirectUri(baseUrl),
   };
 }

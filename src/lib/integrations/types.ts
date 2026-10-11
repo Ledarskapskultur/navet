@@ -70,6 +70,8 @@ export interface IntegrationStatus {
   connectUrl: string | null;
   /** Environment variables that are still missing on the server */
   missingConfig: string[];
+  /** A setting that is present but looks wrong (e.g. a Secret ID pasted as the client secret) */
+  configWarning: string | null;
   /** The redirect URI to register with the provider */
   redirectUri: string;
 }

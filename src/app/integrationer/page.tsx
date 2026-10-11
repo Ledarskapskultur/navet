@@ -39,7 +39,11 @@ const ERRORS: Record<string, string> = {
   ms_access_denied: "Du avbröt anslutningen, eller så saknas administratörssamtycke i Entra.",
   ms_consent_required: "Appen behöver administratörssamtycke i Entra (Grant admin consent).",
   ms_invalid_request: "Microsoft avvisade begäran. Kontrollera att redirect-URI:n i Entra stämmer exakt.",
-  ms_invalid_client: "Microsoft känner inte igen appen eller klienthemligheten. Kontrollera MICROSOFT_CLIENT_ID och MICROSOFT_CLIENT_SECRET.",
+  ms_invalid_client:
+    "Microsoft avvisade klienthemligheten. Värdet i MICROSOFT_CLIENT_SECRET hör inte till den här appen, har gått ut eller är ofullständigt. Skapa en ny hemlighet under samma app i Entra, kopiera kolumnen Value, lägg in den i Vercel för Production och gör en ny deploy.",
+  ms_secret_is_id:
+    "Microsoft avvisade klienthemligheten. Värdet i MICROSOFT_CLIENT_SECRET är hemlighetens Secret ID, inte dess Value. Kopiera kolumnen Value i Entra, lägg in den i Vercel och gör en ny deploy.",
+  ms_invalid_grant: "Microsoft godkände inte svaret från inloggningen. Försök igen. Om det upprepas stämmer inte redirect-URI:n i Entra med Navets adress.",
   ms_unauthorized_client: "Appen i Entra får inte använda den här inloggningsmetoden. Kontrollera att plattformen är Web.",
 };
 
@@ -255,6 +259,11 @@ function IntegrationCard({
       {!i.available && i.availabilityNote && (
         <p className="mx-5 mb-1 flex items-start gap-2 rounded-xl bg-subtle px-3 py-2.5 text-sm text-ink-2 sm:mx-6">
           <Clock3 className="mt-0.5 size-4 shrink-0" /> {i.availabilityNote}
+        </p>
+      )}
+      {i.configWarning && (
+        <p role="alert" className="mx-5 mb-1 flex items-start gap-2 rounded-xl bg-amber-soft px-3 py-2.5 text-sm text-amber sm:mx-6">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" /> <span>{i.configWarning}</span>
         </p>
       )}
       {i.state === "locked" && (
