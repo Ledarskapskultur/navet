@@ -1,5 +1,6 @@
 import "server-only";
 import type { NavetStore } from "../server/store";
+import { testLinkedIn } from "./linkedin/sync";
 import { msAccessToken, recordMsResult } from "./microsoft/connection";
 import { graphCalendarInfo, graphInboxCounts, graphMe } from "./microsoft/graph";
 import { msFeatureStatus } from "./microsoft/providers";
@@ -40,5 +41,6 @@ async function testMicrosoft(store: NavetStore, feature: MsFeature): Promise<Tes
 export async function testIntegration(store: NavetStore, id: IntegrationId): Promise<TestResult> {
   if (id === "outlook_mail") return testMicrosoft(store, "mail");
   if (id === "outlook_calendar") return testMicrosoft(store, "calendar");
-  return { ok: false, message: "LinkedIn-anslutningen byggs i fas 4. Det finns inget att testa än." };
+  const { ok, message } = await testLinkedIn(store);
+  return { ok, message };
 }

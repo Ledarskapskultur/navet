@@ -56,7 +56,7 @@ export interface IntegrationStatus {
   provider: IntegrationProvider;
   description: string;
   state: IntegrationState;
-  /** False while the connection flow itself is not built yet (LinkedIn until phase 4) */
+  /** False while the connection itself is not built yet */
   available: boolean;
   availabilityNote?: string;
   account: { name: string; email: string } | null;
@@ -68,9 +68,20 @@ export interface IntegrationStatus {
   capabilities: IntegrationCapability[];
   /** Where "Anslut konto" goes, or null when connecting is not possible right now */
   connectUrl: string | null;
+  /**
+   * True when the account can be disconnected from the card. LinkedIn cannot: its token is a
+   * setting on the server, so it is removed there.
+   */
+  canDisconnect: boolean;
+  /** True when the card can fetch the integration's data again on request (LinkedIn contacts) */
+  canSync: boolean;
+  /** Number of records fetched through the integration and stored in Navet, when it keeps any */
+  storedCount: number | null;
+  /** Something worth knowing that is not an error, e.g. that the provider is still preparing data */
+  notice: string | null;
   /** Environment variables that are still missing on the server */
   missingConfig: string[];
-  /** A setting that is present but looks wrong (e.g. a Secret ID pasted as the client secret) */
+  /** A setting that is present but looks wrong (e.g. a Secret ID pasted as the client secret) or is about to expire */
   configWarning: string | null;
   /** The redirect URI to register with the provider */
   redirectUri: string;
