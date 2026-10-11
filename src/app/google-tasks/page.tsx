@@ -179,7 +179,7 @@ function GoogleTaskRow({ item }: { item: NavetItem }) {
           aria-label={done ? "Markera som ej klar" : "Markera som klar"}
           className={clsx(
             "flex size-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
-            done ? "border-accent bg-accent text-white" : "border-line-strong text-transparent hover:border-accent hover:text-accent",
+            done ? "border-accent bg-accent text-on-accent" : "border-line-strong text-transparent hover:border-accent hover:text-accent",
           )}
         >
           <Check className="size-3.5" strokeWidth={3} />

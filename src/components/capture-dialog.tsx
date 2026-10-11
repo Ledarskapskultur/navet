@@ -356,7 +356,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
             aria-label={listening ? "Sluta lyssna" : "Tala in"}
             className={clsx(
               "absolute right-3 top-3 rounded-xl p-2 transition-colors",
-              listening ? "bg-accent text-white" : "text-ink-3 hover:bg-subtle hover:text-ink",
+              listening ? "bg-accent text-on-accent" : "text-ink-3 hover:bg-subtle hover:text-ink",
             )}
           >
             {listening ? <MicOff className="size-5" /> : <Mic className="size-5" />}
@@ -396,7 +396,7 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
                 onClick={() => setOverride((o) => ({ ...o, type: t }))}
                 className={clsx(
                   "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors",
-                  result.type === t ? "border-accent bg-accent text-white" : "border-line bg-surface text-ink-2 hover:bg-subtle",
+                  result.type === t ? "border-accent bg-accent text-on-accent" : "border-line bg-surface text-ink-2 hover:bg-subtle",
                 )}
               >
                 <TypeIcon type={t} className="size-3.5" />
@@ -459,13 +459,13 @@ function CaptureBody({ initial, handsFree }: { initial: string; handsFree: boole
       {!reply && (
       <div className="space-y-3">
         <label className="flex items-center gap-2.5 text-sm text-ink-2">
-          <input type="checkbox" checked={sortNow} onChange={(e) => setSortNow(e.target.checked)} className="size-4 accent-[#2f5d4e]" />
+          <input type="checkbox" checked={sortNow} onChange={(e) => setSortNow(e.target.checked)} className="size-4 accent-accent" />
           Hoppa över inkorgen (redan sorterad)
         </label>
         {lists.length > 0 && (
           <div className="flex flex-wrap items-center gap-2.5 text-sm text-ink-2">
             <label className="flex items-center gap-2.5">
-              <input type="checkbox" checked={syncToGoogle} onChange={(e) => setGoogleChoice(e.target.checked)} className="size-4 accent-[#2f5d4e]" />
+              <input type="checkbox" checked={syncToGoogle} onChange={(e) => setGoogleChoice(e.target.checked)} className="size-4 accent-accent" />
               <GoogleTasksIcon className="size-4" />
               Synka till Google Tasks{status?.mode === "demo" ? " (demo)" : ""}
             </label>

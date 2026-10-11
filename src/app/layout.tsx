@@ -3,6 +3,7 @@ import "./globals.css";
 import { NavetProvider } from "@/components/navet-provider";
 import { AppShell } from "@/components/app-shell";
 import { ServiceWorker } from "@/components/service-worker";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: { default: "Navet", template: "%s · Navet" },
@@ -19,7 +20,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f5f3ee",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f3ee" },
+    { media: "(prefers-color-scheme: dark)", color: "#16181a" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -27,7 +31,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="sv" className="h-full antialiased">
+    <html lang="sv" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        {/* Applies the saved theme before the first paint, so a dark page never flashes light. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full">
         <NavetProvider>
           <AppShell>{children}</AppShell>

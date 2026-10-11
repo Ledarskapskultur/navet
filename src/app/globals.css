@@ -18,11 +18,89 @@
   --color-warn-soft: #f6e7dd;
   --color-amber: #8a6a2b;
   --color-amber-soft: #f4ecd9;
+  /* Text on top of a filled accent / warning surface */
+  --color-on-accent: #ffffff;
+  --color-on-warn: #ffffff;
+  /* Item type tones (idea, note, waiting, request) */
+  --color-violet: #5b4a78;
+  --color-violet-soft: #ece7f2;
+  --color-slate: #46606f;
+  --color-slate-soft: #e5ebef;
+  --color-clay: #85513f;
+  --color-clay-soft: #f1e5e1;
+  --color-sky: #35596a;
+  --color-sky-soft: #e2ecf0;
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
   --shadow-card: 0 1px 2px rgb(36 39 43 / 0.04), 0 1px 1px rgb(36 39 43 / 0.03);
   --shadow-pop: 0 12px 40px -12px rgb(36 39 43 / 0.25), 0 2px 6px rgb(36 39 43 / 0.06);
+}
+
+/* Dark theme. "Mörk" forces it, "Automatiskt" (no data-theme) follows the device. */
+:root[data-theme="dark"] {
+  --color-canvas: #16181a;
+  --color-surface: #1e2123;
+  --color-subtle: #25282b;
+  --color-sunken: #2c3033;
+  --color-line: #2f3336;
+  --color-line-strong: #42474b;
+  --color-ink: #ecebe6;
+  --color-ink-2: #b6b9bb;
+  --color-ink-3: #8b8f92;
+  --color-accent: #7fc0a6;
+  --color-accent-strong: #9ad1ba;
+  --color-accent-soft: #1f332b;
+  --color-warn: #e69c79;
+  --color-warn-soft: #3a251b;
+  --color-amber: #d9b871;
+  --color-amber-soft: #352f1d;
+  --color-on-accent: #0e2019;
+  --color-on-warn: #2a1408;
+  --color-violet: #bcabdf;
+  --color-violet-soft: #2c2839;
+  --color-slate: #a2bfd0;
+  --color-slate-soft: #232d33;
+  --color-clay: #dcaa94;
+  --color-clay-soft: #33261f;
+  --color-sky: #96c0d3;
+  --color-sky-soft: #1f2d33;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 1px rgb(0 0 0 / 0.2);
+  --shadow-pop: 0 12px 40px -12px rgb(0 0 0 / 0.7), 0 2px 6px rgb(0 0 0 / 0.4);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-canvas: #16181a;
+    --color-surface: #1e2123;
+    --color-subtle: #25282b;
+    --color-sunken: #2c3033;
+    --color-line: #2f3336;
+    --color-line-strong: #42474b;
+    --color-ink: #ecebe6;
+    --color-ink-2: #b6b9bb;
+    --color-ink-3: #8b8f92;
+    --color-accent: #7fc0a6;
+    --color-accent-strong: #9ad1ba;
+    --color-accent-soft: #1f332b;
+    --color-warn: #e69c79;
+    --color-warn-soft: #3a251b;
+    --color-amber: #d9b871;
+    --color-amber-soft: #352f1d;
+    --color-on-accent: #0e2019;
+    --color-on-warn: #2a1408;
+    --color-violet: #bcabdf;
+    --color-violet-soft: #2c2839;
+    --color-slate: #a2bfd0;
+    --color-slate-soft: #232d33;
+    --color-clay: #dcaa94;
+    --color-clay-soft: #33261f;
+    --color-sky: #96c0d3;
+    --color-sky-soft: #1f2d33;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 1px rgb(0 0 0 / 0.2);
+    --shadow-pop: 0 12px 40px -12px rgb(0 0 0 / 0.7), 0 2px 6px rgb(0 0 0 / 0.4);
+    color-scheme: dark;
+  }
 }
 
 html {

@@ -30,12 +30,14 @@ function TodoView() {
     .filter((i) => !source || i.source === source)
     .sort(byDue);
 
+  const started = base.filter((i) => i.status === "in_progress");
   const groups = {
     overdue: base.filter((i) => i.dueDate && i.dueDate < today),
     today: base.filter((i) => i.dueDate === today),
     upcoming: base.filter((i) => i.dueDate && i.dueDate > today),
     nodate: base.filter((i) => !i.dueDate),
   };
+  const notStarted = (list: NavetItem[]) => list.filter((i) => i.status !== "in_progress");
   const weekEnd = addDaysISO(today, 7);
 
   const sections: { key: Exclude<Filter, "all">; title: string; items: NavetItem[] }[] = [
@@ -45,7 +47,11 @@ function TodoView() {
     { key: "upcoming", title: "Senare", items: groups.upcoming.filter((i) => i.dueDate! > weekEnd) },
     { key: "nodate", title: "Utan datum", items: groups.nodate },
   ];
-  const visible = sections.filter((s) => (filter === "all" || s.key === filter) && s.items.length);
+  // With "Alla" the started tasks get their own group at the top instead of being repeated below.
+  const visible =
+    filter === "all"
+      ? [{ key: "all" as const, title: "Pågår", items: started }, ...sections.map((s) => ({ ...s, items: notStarted(s.items) }))].filter((s) => s.items.length)
+      : sections.filter((s) => s.key === filter && s.items.length);
 
   return (
     <div>

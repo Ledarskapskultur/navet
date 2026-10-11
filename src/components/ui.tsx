@@ -22,7 +22,7 @@ export function Button({
       className={clsx(
         "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         size === "sm" ? "h-8 px-3 text-sm" : "h-10 px-4 text-[15px]",
-        variant === "primary" && "bg-accent text-white hover:bg-accent-strong",
+        variant === "primary" && "bg-accent text-on-accent hover:bg-accent-strong",
         variant === "secondary" && "border border-line bg-surface text-ink hover:bg-subtle",
         variant === "ghost" && "text-ink-2 hover:bg-subtle hover:text-ink",
         variant === "danger" && "border border-line bg-surface text-warn hover:bg-warn-soft",
@@ -62,7 +62,7 @@ export function Section({
   className?: string;
 }) {
   return (
-    <section className={clsx("mb-10", className)}>
+    <section className={clsx("mb-10 min-w-0", className)}>
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink-3">
           {title}
@@ -87,12 +87,12 @@ export function EmptyState({ title, text, action }: { title: string; text?: stri
 
 const TYPE_STYLE: Record<ItemType, string> = {
   task: "bg-subtle text-ink-2",
-  idea: "bg-[#ece7f2] text-[#5b4a78]",
+  idea: "bg-violet-soft text-violet",
   commitment: "bg-amber-soft text-amber",
-  note: "bg-[#e5ebef] text-[#46606f]",
-  waiting: "bg-[#f1e5e1] text-[#85513f]",
+  note: "bg-slate-soft text-slate",
+  waiting: "bg-clay-soft text-clay",
   reminder: "bg-accent-soft text-accent",
-  request: "bg-[#e2ecf0] text-[#35596a]",
+  request: "bg-sky-soft text-sky",
 };
 
 export function Pill({ className, children, title }: { className?: string; children: ReactNode; title?: string }) {

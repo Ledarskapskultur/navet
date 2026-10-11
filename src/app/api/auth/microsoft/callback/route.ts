@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { exchangeMsCode } from "@/lib/integrations/microsoft/oauth";
+import { exchangeMsCode, MsOAuthError } from "@/lib/integrations/microsoft/oauth";
+import { MS_OAUTH_COOKIE, type MsOAuthFlow } from "@/lib/integrations/microsoft/flow";
 import { graphMe } from "@/lib/integrations/microsoft/graph";
-import { saveMsConnection } from "@/lib/integrations/microsoft/connection";
-import { appUrl } from "@/lib/server/env";
+import { loadMsConnection, resetMsHealth, saveMsConnection } from "@/lib/integrations/microsoft/connection";
+import { msFeaturesFor, normalizeMsScopes } from "@/lib/integrations/microsoft/scopes";
+import { decrypt } from "@/lib/server/crypto";
+import { appUrl, integrationsUnlocked } from "@/lib/server/env";
 import { getStore } from "@/lib/server/store";
 
 export const dynamic = "force-dynamic";
@@ -12,35 +15,53 @@ export async function GET(req: Request) {
   const base = appUrl(req);
   const url = new URL(req.url);
   const jar = await cookies();
-  const expected = jar.get("navet_ms_state")?.value;
-  const verifier = jar.get("navet_ms_verifier")?.value;
-  jar.delete("navet_ms_state");
-  jar.delete("navet_ms_verifier");
+  const raw = jar.get(MS_OAUTH_COOKIE)?.value;
+  const flow = raw ? decrypt<MsOAuthFlow>(raw) : null;
+  jar.delete(MS_OAUTH_COOKIE);
+  const fail = (code: string) => NextResponse.redirect(`${base}/integrationer?error=${encodeURIComponent(code)}`);
+
+  if (!integrationsUnlocked()) return fail("app_password_required");
 
   const error = url.searchParams.get("error");
   if (error) {
-    console.error("[navet] microsoft oauth", error, url.searchParams.get("error_description"));
-    return NextResponse.redirect(`${base}/installningar?error=ms_${encodeURIComponent(error)}`);
+    console.error("[navet] microsoft oauth", error, url.searchParams.get("error_description")?.split(/\r?\n/)[0]);
+    return fail(`ms_${error}`);
   }
   const code = url.searchParams.get("code");
-  if (!code || !expected || url.searchParams.get("state") !== expected || !verifier) {
-    return NextResponse.redirect(`${base}/installningar?error=invalid_state`);
-  }
+  if (!code || !flow || url.searchParams.get("state") !== flow.state) return fail("invalid_state");
 
   try {
-    const t = await exchangeMsCode({ code, baseUrl: base, codeVerifier: verifier });
-    if (!t.refresh_token) throw new Error("Ingen refresh token – saknas offline_access?");
+    const t = await exchangeMsCode({ code, baseUrl: base, codeVerifier: flow.verifier });
+    if (!t.refresh_token) throw new MsOAuthError("no_refresh_token", "Ingen refresh token – saknas offline_access?");
+    const granted = normalizeMsScopes(t.scope);
+    const features = msFeaturesFor(flow.grant, granted);
+    // The user (or the tenant) can decline a permission. Then nothing was gained – say so.
+    if (!features.length) return fail("ms_scope_missing");
+
     const account = await graphMe(t.access_token);
-    await saveMsConnection(await getStore(), {
+    const store = await getStore();
+    const previous = await loadMsConnection(store);
+    // A different account replaces the old connection; the same account keeps what was on.
+    const sameAccount = previous?.account.email.toLowerCase() === account.email.toLowerCase();
+    const on = { mail: false, calendar: false, ...(sameAccount ? previous!.features : {}) };
+    for (const f of features) on[f] = true;
+
+    await saveMsConnection(store, {
       accessToken: t.access_token,
       refreshToken: t.refresh_token,
       expiresAt: Date.now() + t.expires_in * 1000,
       account,
-      connectedAt: new Date().toISOString(),
+      connectedAt: sameAccount ? previous!.connectedAt : new Date().toISOString(),
+      scopes: granted,
+      features: on,
     });
-    return NextResponse.redirect(`${base}/kalender?outlook=1`);
+    await resetMsHealth(store);
+
+    const back = new URL(flow.returnTo, base);
+    back.searchParams.set("connected", features.map((f) => (f === "mail" ? "outlook_mail" : "outlook_calendar")).join(","));
+    return NextResponse.redirect(back);
   } catch (err) {
-    console.error("[navet] microsoft callback", err);
-    return NextResponse.redirect(`${base}/installningar?error=ms_token_exchange`);
+    console.error("[navet] microsoft callback", (err as Error).message);
+    return fail(err instanceof MsOAuthError && err.code === "no_refresh_token" ? "ms_no_refresh_token" : "ms_token_exchange");
   }
 }

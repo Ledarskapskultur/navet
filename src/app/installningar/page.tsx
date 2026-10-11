@@ -2,11 +2,13 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Database, Lock, LogOut, Mail, RotateCcw, ShieldAlert, Smartphone } from "lucide-react";
+import Link from "next/link";
+import { Database, Lock, LogOut, Palette, Plug, RotateCcw, ShieldAlert, Smartphone } from "lucide-react";
 import { useNavet } from "@/components/navet-provider";
 import { Button, Card, Notice, PageHeader, Section, inputClass } from "@/components/ui";
 import { GoogleTasksIcon } from "@/components/icons";
 import { VoiceLaunchSetting } from "@/components/voice-launch-setting";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const ERRORS: Record<string, string> = {
   google_not_configured: "Google OAuth är inte konfigurerat. Lägg till GOOGLE_CLIENT_ID och GOOGLE_CLIENT_SECRET i .env.local.",
@@ -30,13 +32,22 @@ function SettingsView() {
 
   return (
     <div>
-      <PageHeader title="Inställningar" subtitle="Röst, säkerhet, lagring och installation." />
+      <PageHeader title="Inställningar" subtitle="Röst, utseende, säkerhet, lagring och installation." />
       {error && (
         <div className="mb-6 rounded-2xl border border-warn/20 bg-warn-soft px-4 py-3 text-sm text-warn">{ERRORS[error] ?? `Fel: ${error}`}</div>
       )}
 
       <Section title="Röst">
         <VoiceLaunchSetting />
+      </Section>
+
+      <Section title="Utseende">
+        <Card className="flex flex-wrap items-center justify-between gap-3 p-5 text-sm text-ink-2">
+          <p className="flex items-center gap-2">
+            <Palette className="size-4 text-ink-3" /> Ljus eller mörk vy. Automatiskt följer enhetens inställning.
+          </p>
+          <ThemeToggle labels />
+        </Card>
       </Section>
 
       <Section title="Säkerhet">
@@ -119,7 +130,7 @@ function SettingsView() {
               </label>
             )}
           </Card>
-          <OutlookCard />
+          <IntegrationsLink />
         </div>
       </Section>
 
@@ -151,49 +162,23 @@ export default function SettingsPage() {
   );
 }
 
-function OutlookCard() {
-  const { status, refresh, notify } = useNavet();
-  const [busy, setBusy] = useState(false);
-  const account = status?.outlook;
-  const disconnect = async () => {
-    setBusy(true);
-    await fetch("/api/auth/microsoft/disconnect", { method: "POST" });
-    await refresh();
-    setBusy(false);
-    notify("Outlook frånkopplat");
-  };
+function IntegrationsLink() {
+  const { status } = useNavet();
   return (
-    <Card className="space-y-4 p-5 text-sm text-ink-2">
-      <div>
-        <p className="flex items-center gap-2 font-medium text-ink">
-          <CalendarDays className="size-4" /> Outlook-kalender <Mail className="ml-2 size-4" /> Flaggade mail
-        </p>
-        {account ? (
+    <Card className="flex flex-wrap items-center justify-between gap-3 p-5 text-sm text-ink-2">
+      <div className="flex items-start gap-3">
+        <Plug className="mt-0.5 size-5 text-ink-3" />
+        <div>
+          <p className="font-medium text-ink">Outlook, kalender och LinkedIn</p>
           <p className="mt-1">
-            Kopplat till <strong className="text-ink">{account.name}</strong> ({account.email}). Navet läser din kalender och dina
-            flaggade mail – det ändrar ingenting i Outlook.
+            {status?.outlook ? `Outlook är anslutet till ${status.outlook.email}.` : "Inget Microsoft-konto är anslutet."} Anslutning, behörigheter och
+            status finns under Integrationer.
           </p>
-        ) : status?.outlookConfigured ? (
-          <p className="mt-1">Inte kopplat. Kalendern och mailsidan visar exempel tills du kopplar Outlook.</p>
-        ) : (
-          <p className="mt-1">
-            Lägg först in <code>MICROSOFT_CLIENT_ID</code>, <code>MICROSOFT_CLIENT_SECRET</code> och{" "}
-            <code>MICROSOFT_TENANT_ID</code> i Vercel (se guiden docs/outlook.md) och gör en ny deploy.
-          </p>
-        )}
+        </div>
       </div>
-      {account ? (
-        <Button size="sm" onClick={disconnect} disabled={busy}>
-          Koppla från Outlook
-        </Button>
-      ) : status?.outlookConfigured ? (
-        <a
-          href="/api/auth/microsoft"
-          className="inline-flex h-10 items-center rounded-xl bg-accent px-4 text-[15px] font-medium text-white hover:bg-accent-strong"
-        >
-          Koppla Outlook
-        </a>
-      ) : null}
+      <Link href="/integrationer" className="inline-flex h-10 items-center rounded-xl border border-line bg-surface px-4 text-[15px] font-medium text-ink hover:bg-subtle">
+        Öppna Integrationer
+      </Link>
     </Card>
   );
 }

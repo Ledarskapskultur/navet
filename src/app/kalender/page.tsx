@@ -1,12 +1,14 @@
 "use client";
 
 import clsx from "clsx";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { addDays, format, startOfDay, startOfWeek } from "date-fns";
 import { sv } from "date-fns/locale";
 import { CalendarClock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavet } from "@/components/navet-provider";
 import { Button, Notice, PageHeader } from "@/components/ui";
+import { ConnectNotice } from "@/components/connect-notice";
 import { TypeIcon } from "@/components/icons";
 import { useCalendar } from "@/hooks/use-remote";
 import { formatTime, toISODate, todayISO } from "@/lib/dates";
@@ -40,20 +42,22 @@ export default function CalendarPage() {
         }
       />
       <div className="mb-8">
-        {calendar.error ? (
+        {calendar.provider === "none" && calendar.state !== "error" ? (
+          <ConnectNotice state={calendar.state} what="dina möten" extra="Dina deadlines från Navet visas redan." />
+        ) : calendar.error ? (
           <Notice icon={<CalendarClock className="size-4" />}>
-            <strong className="font-semibold">{calendar.error}</strong>
+            <strong className="font-semibold">{calendar.error}</strong>{" "}
+            <Link href="/integrationer" className="underline underline-offset-2">Öppna Integrationer</Link>
           </Notice>
         ) : calendar.provider === "outlook" ? (
           <Notice tone="muted" icon={<CalendarClock className="size-4" />}>
             Möten från Outlook{status?.outlook ? ` (${status.outlook.email})` : ""} tillsammans med dina deadlines i Navet. Tryck på ett möte för att öppna det i Outlook.
           </Notice>
-        ) : (
+        ) : calendar.provider === "demo" ? (
           <Notice icon={<CalendarClock className="size-4" />}>
-            <strong className="font-semibold">Mötena nedan är exempel.</strong> Koppla Outlook under{" "}
-            <a href="/installningar" className="underline underline-offset-2">Inställningar</a> så visas din riktiga kalender här – dina deadlines från Navet visas redan.
+            <strong className="font-semibold">Demoläge.</strong> Mötena nedan är exempel och kommer inte från något konto.
           </Notice>
-        )}
+        ) : null}
       </div>
       <div className="space-y-3">
         {days.map((day) => {

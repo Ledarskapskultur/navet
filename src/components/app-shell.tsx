@@ -16,6 +16,7 @@ import {
   Mail,
   Menu,
   Mic,
+  Plug,
   Plus,
   Settings,
   Sun,
@@ -26,6 +27,7 @@ import { CaptureDialog } from "./capture-dialog";
 import { ItemEditor } from "./item-editor";
 import { SyncStatus } from "./sync-status";
 import { GoogleTasksIcon } from "./icons";
+import { ThemeToggle } from "./theme-toggle";
 import { isActive } from "@/lib/selectors";
 import { isStandalone, voiceOnLaunchEnabled } from "@/lib/voice-launch";
 
@@ -55,6 +57,7 @@ function useNav() {
   const integrations: NavItem[] = [
     ...(google ? [{ href: "/google-tasks", label: "Google Tasks", icon: GoogleTasksIcon }] : []),
     { href: "/rost-google", label: google ? "Röst & Google" : "Röst", icon: Mic },
+    { href: "/integrationer", label: "Integrationer", icon: Plug },
     { href: "/installningar", label: "Inställningar", icon: Settings },
   ];
   return { main, integrations };
@@ -88,7 +91,7 @@ function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2.5">
       <span className="flex size-8 items-center justify-center rounded-[10px] bg-accent">
-        <span className="size-3 rounded-full border-[2.5px] border-white" />
+        <span className="size-3 rounded-full border-[2.5px] border-on-accent" />
       </span>
       <span className="text-lg font-semibold tracking-tight">Navet</span>
     </Link>
@@ -119,7 +122,7 @@ function Toasts() {
           key={t.id}
           className={clsx(
             "animate-in pointer-events-auto max-w-md rounded-xl px-4 py-2.5 text-sm shadow-pop",
-            t.tone === "error" ? "bg-warn text-white" : "bg-ink text-white",
+            t.tone === "error" ? "bg-warn text-on-warn" : "bg-ink text-canvas",
           )}
           role="status"
         >
@@ -184,10 +187,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <button
           onClick={() => openCapture()}
-          className="mt-7 flex h-11 items-center justify-center gap-2 rounded-xl bg-accent text-[15px] font-medium text-white shadow-card transition-colors hover:bg-accent-strong"
+          className="mt-7 flex h-11 items-center justify-center gap-2 rounded-xl bg-accent text-[15px] font-medium text-on-accent shadow-card transition-colors hover:bg-accent-strong"
         >
           <Plus className="size-5" /> Fånga
-          <kbd className="ml-1 rounded bg-white/15 px-1.5 text-[11px] font-normal">N</kbd>
+          <kbd className="ml-1 rounded bg-on-accent/15 px-1.5 text-[11px] font-normal">N</kbd>
         </button>
         <nav className="mt-6 flex-1 space-y-0.5 overflow-y-auto">
           {main.map((item) => (
@@ -201,8 +204,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mt-4 border-t border-line px-2 pt-4">
           <SyncStatus />
           <p className="mt-2 truncate text-xs text-ink-3">
-            {status?.mode === "google" ? status.user?.email : status?.mode === "demo" ? "Demoläge" : "Personlig arbetsyta"}
+            {status?.mode === "google" ? status.user?.email : status?.mode === "demo" ? "Demoläge" : (status?.outlook?.email ?? "Personlig arbetsyta")}
           </p>
+          <div className="mt-3">
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
 
@@ -237,7 +243,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <button
               onClick={() => openCapture()}
               aria-label="Fånga"
-              className="-mt-6 flex size-14 items-center justify-center rounded-2xl bg-accent text-white shadow-pop active:scale-95"
+              className="-mt-6 flex size-14 items-center justify-center rounded-2xl bg-accent text-on-accent shadow-pop active:scale-95"
             >
               <Plus className="size-7" />
             </button>
@@ -269,6 +275,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <NavLink key={item.href} item={item} onClick={() => setMoreOpen(false)} />
               ))}
             </div>
+            <div className="mt-4 flex items-center justify-between border-t border-line px-3 pt-4">
+              <span className="text-sm text-ink-2">Utseende</span>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       )}
@@ -289,7 +299,7 @@ function BottomLink({ item }: { item: NavItem }) {
       <Icon className="size-5" />
       {item.label}
       {item.count ? (
-        <span className="absolute -top-1 right-[calc(50%-18px)] min-w-4 rounded-full bg-accent px-1 text-center text-[10px] leading-4 text-white">
+        <span className="absolute -top-1 right-[calc(50%-18px)] min-w-4 rounded-full bg-accent px-1 text-center text-[10px] leading-4 text-on-accent">
           {item.count}
         </span>
       ) : null}

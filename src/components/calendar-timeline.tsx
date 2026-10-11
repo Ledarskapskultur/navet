@@ -30,12 +30,12 @@ export function CalendarTimeline({ events, now = new Date() }: { events: Calenda
               ) : (
                 <p className="text-[15px] leading-snug text-ink">{e.title}</p>
               )}
-              <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-3">
-                {e.allDay ? "Heldag" : `${formatTime(e.start)}–${formatTime(e.end)}`}
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-3">
+                <span className="whitespace-nowrap">{e.allDay ? "Heldag" : `${formatTime(e.start)}–${formatTime(e.end)}`}</span>
                 {e.location && (
-                  <>
-                    <MapPin className="ml-1 size-3" /> {e.location}
-                  </>
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <MapPin className="size-3 shrink-0" /> <span className="truncate">{e.location}</span>
+                  </span>
                 )}
               </p>
             </div>

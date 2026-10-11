@@ -1,7 +1,7 @@
 // Rule-based "AI interpretation" of a flagged mail. Shaped so an LLM call can
 // later return the same MailInterpretation structure.
 import { extractDate, parseCapture } from "./parser";
-import type { FlaggedMail, ItemType, Project } from "./types";
+import type { ItemType, MailMessage, NavetItem, NewItemInput, Project } from "./types";
 
 export interface MailInterpretation {
   type: ItemType;
@@ -14,7 +14,7 @@ export interface MailInterpretation {
 
 const DEADLINE_RE = /\b(?:senast|innan|före|till|på)\s+(?:den\s+)?(måndag|tisdag|onsdag|torsdag|fredag|lördag|söndag|imorgon|idag|\d{1,2}\s+\w+)/i;
 
-export function interpretMail(mail: FlaggedMail, projects: Project[], now = new Date()): MailInterpretation {
+export function interpretMail(mail: MailMessage, projects: Project[], now = new Date()): MailInterpretation {
   const firstName = mail.from.split(" ")[0];
   const text = `${mail.subject}. ${mail.preview}`;
   const ctx = parseCapture(text, projects, now);
@@ -48,6 +48,28 @@ export function interpretMail(mail: FlaggedMail, projects: Project[], now = new 
     projectId: ctx.projectId,
     person: mail.from,
   };
+}
+
+/** The marker that links a Navet item to the mail it was created from. */
+const mailTag = (mailId: string) => `[mail:${mailId}]`;
+
+/** A new inbox item for a mail, using the interpretation above. Nothing is changed in Outlook. */
+export function mailToItem(mail: MailMessage, ai: MailInterpretation): NewItemInput {
+  return {
+    title: ai.title,
+    type: ai.type,
+    status: "inbox",
+    source: "outlook_mail",
+    projectId: ai.projectId,
+    dueDate: ai.dueDate,
+    person: ai.type === "commitment" || ai.type === "task" ? mail.from.split(" ")[0] : null,
+    description: `Från mail: ”${mail.subject}” – ${mail.from} <${mail.fromEmail}>\n${mailTag(mail.id)}`,
+  };
+}
+
+/** True when an item has already been created from this mail. */
+export function mailAlreadyInNavet(mail: MailMessage, items: NavetItem[]): boolean {
+  return items.some((i) => i.source === "outlook_mail" && i.description?.includes(mailTag(mail.id)));
 }
 
 function capitalize(s: string) {

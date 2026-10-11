@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Check, Clock, User } from "lucide-react";
+import { Check, Clock, Play, User } from "lucide-react";
 import { isOverdue } from "@/lib/selectors";
 import { STAGE_LABEL } from "@/lib/labels";
 import { formatDue } from "@/lib/dates";
@@ -20,10 +20,13 @@ export function ItemRow({
   showProject?: boolean;
   compact?: boolean;
 }) {
-  const { toggleDone, openItem, projectById, listName } = useNavet();
+  const { toggleDone, openItem, projectById, listName, updateItem } = useNavet();
   const done = item.status === "done";
   const checkable = item.type !== "idea" && item.type !== "note" && item.type !== "request";
   const overdue = isOverdue(item);
+  // Att göra → Pågår → (bocka av) Klart. Only for things you actually work on.
+  const startable = (item.type === "task" || item.type === "commitment" || item.type === "reminder") && (item.status === "open" || item.status === "inbox");
+  const inProgress = item.status === "in_progress";
 
   return (
     <div
@@ -38,7 +41,7 @@ export function ItemRow({
           aria-label={done ? "Markera som ej klar" : "Markera som klar"}
           className={clsx(
             "mt-0.5 flex size-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors",
-            done ? "border-accent bg-accent text-white" : "border-line-strong text-transparent hover:border-accent hover:text-accent",
+            done ? "border-accent bg-accent text-on-accent" : "border-line-strong text-transparent hover:border-accent hover:text-accent",
           )}
         >
           <Check className="size-3.5" strokeWidth={3} />
@@ -76,6 +79,24 @@ export function ItemRow({
           {showProject && <ProjectBadge project={projectById(item.projectId)} />}
         </div>
       </button>
+      {inProgress && (
+        <button
+          onClick={() => updateItem(item.id, { status: "open" })}
+          title="Pågår. Tryck för att lägga tillbaka i Att göra."
+          className="mt-0.5 inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 text-xs font-medium text-accent-strong"
+        >
+          <span className="size-1.5 rounded-full bg-accent" /> Pågår
+        </button>
+      )}
+      {startable && (
+        <button
+          onClick={() => updateItem(item.id, { status: "in_progress" })}
+          title="Markera som pågående"
+          className="mt-0.5 inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-line px-2.5 text-xs font-medium text-ink-2 transition-opacity hover:border-line-strong hover:text-ink focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+        >
+          <Play className="size-3" /> Påbörja
+        </button>
+      )}
     </div>
   );
 }

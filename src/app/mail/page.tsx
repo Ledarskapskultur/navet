@@ -1,13 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { ArrowRight, Flag, Plug, Sparkles } from "lucide-react";
 import { useNavet } from "@/components/navet-provider";
 import { Button, Card, Notice, PageHeader, Pill } from "@/components/ui";
+import { ConnectNotice } from "@/components/connect-notice";
 import { useFlaggedMail } from "@/hooks/use-remote";
-import { interpretMail } from "@/lib/mail-interpret";
+import { interpretMail, mailAlreadyInNavet, mailToItem } from "@/lib/mail-interpret";
 import { TYPE_LABEL } from "@/lib/labels";
 import { formatDue, relativeTime } from "@/lib/dates";
-import type { FlaggedMail } from "@/lib/types";
+import type { MailMessage } from "@/lib/types";
 
 export default function MailPage() {
   const mail = useFlaggedMail();
@@ -19,24 +21,26 @@ export default function MailPage() {
         subtitle="Flaggade mail från Outlook blir förslag på uppgifter, åtaganden och idéer – du bestämmer vad som ska in i Navet."
       />
       <div className="mb-8">
-        {mail.error ? (
+        {mail.provider === "none" && mail.state !== "error" ? (
+          <ConnectNotice state={mail.state} what="dina flaggade mejl" />
+        ) : mail.error ? (
           <Notice icon={<Plug className="size-4" />}>
-            <strong className="font-semibold">{mail.error}</strong>
+            <strong className="font-semibold">{mail.error}</strong>{" "}
+            <Link href="/integrationer" className="underline underline-offset-2">Öppna Integrationer</Link>
           </Notice>
         ) : mail.provider === "outlook" ? (
           <Notice tone="muted" icon={<Flag className="size-4" />}>
             Dina flaggade mail i Outlook. När du har hanterat ett mail – ta bort flaggan i Outlook så försvinner det härifrån.
           </Notice>
-        ) : (
+        ) : mail.provider === "demo" ? (
           <Notice icon={<Plug className="size-4" />}>
-            <strong className="font-semibold">Exempelmail.</strong> Koppla Outlook under{" "}
-            <a href="/installningar" className="underline underline-offset-2">Inställningar</a> så visas dina riktiga flaggade mail här.
+            <strong className="font-semibold">Demoläge.</strong> Mejlen nedan är exempel och kommer inte från något konto.
           </Notice>
-        )}
+        ) : null}
       </div>
       <div className="space-y-4">
         {mails === null && <div className="h-48 animate-pulse rounded-2xl bg-sunken/60" />}
-        {mails?.length === 0 && !mail.error && (
+        {mails?.length === 0 && !mail.error && mail.provider !== "none" && (
           <p className="rounded-2xl border border-dashed border-line-strong px-6 py-10 text-center text-sm text-ink-2">
             Inga flaggade mail just nu.
           </p>
@@ -49,23 +53,14 @@ export default function MailPage() {
   );
 }
 
-function MailCard({ mail }: { mail: FlaggedMail }) {
+function MailCard({ mail }: { mail: MailMessage }) {
   const { projects, projectById, createItem, notify, items } = useNavet();
   const ai = interpretMail(mail, projects);
   const project = projectById(ai.projectId);
-  const already = items.some((i) => i.source === "outlook_mail" && i.description?.includes(`[mail:${mail.id}]`));
+  const already = mailAlreadyInNavet(mail, items);
 
   const create = async () => {
-    const res = await createItem({
-      title: ai.title,
-      type: ai.type,
-      status: "inbox",
-      source: "outlook_mail",
-      projectId: ai.projectId,
-      dueDate: ai.dueDate,
-      person: ai.type === "commitment" || ai.type === "task" ? mail.from.split(" ")[0] : null,
-      description: `Från mail: ”${mail.subject}” – ${mail.from} <${mail.fromEmail}>\n[mail:${mail.id}]`,
-    });
+    const res = await createItem(mailToItem(mail, ai));
     if (res) notify("Skapad i inkorgen");
   };
 

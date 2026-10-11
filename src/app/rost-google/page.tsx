@@ -12,7 +12,7 @@ import { byNewest } from "@/lib/selectors";
 const steps = [
   { title: "”Hey Google” / Gemini", text: "Säg till exempel: ”Hey Google, påminn mig att skicka brevet till Anna idag.”", icon: <Mic className="size-5" /> },
   { title: "Google Tasks", text: "Gemini sparar påminnelsen som en uppgift i Google Tasks – med datum.", icon: <GoogleTasksIcon className="size-5" /> },
-  { title: "Navet", text: "Navet hämtar nya uppgifter automatiskt när du öppnar appen (och när du trycker på Synka nu). De landar i Inkorgen.", icon: <span className="size-3 rounded-full border-[2.5px] border-white" />, accent: true },
+  { title: "Navet", text: "Navet hämtar nya uppgifter automatiskt när du öppnar appen (och när du trycker på Synka nu). De landar i Inkorgen.", icon: <span className="size-3 rounded-full border-[2.5px] border-on-accent" />, accent: true },
   { title: "Projekt · uppgift · åtagande · idé", text: "Du sorterar i Inkorgen. Navet föreslår typ och projekt utifrån orden. Klar-markering och ändringar skickas tillbaka till Google.", icon: <span className="text-sm font-semibold">✓</span> },
 ];
 
@@ -31,7 +31,7 @@ const VOICE_EXAMPLES = [
 
 const personalSteps = [
   { title: "”Hey Google, öppna Navet”", text: "Telefonens assistent öppnar den installerade Navet-appen.", icon: <Mic className="size-5" /> },
-  { title: "Navet lyssnar", text: "Säg det du vill komma ihåg, t.ex. ”Ring Johan på torsdag” eller ”Jag lovade Anna att skicka offerten på fredag”.", icon: <span className="size-3 rounded-full border-[2.5px] border-white" />, accent: true },
+  { title: "Navet lyssnar", text: "Säg det du vill komma ihåg, t.ex. ”Ring Johan på torsdag” eller ”Jag lovade Anna att skicka offerten på fredag”.", icon: <span className="size-3 rounded-full border-[2.5px] border-on-accent" />, accent: true },
   { title: "Inkorgen", text: "Efter tre sekunder sparas det i Inkorgen. Tryck på skärmen innan dess om du vill ändra något.", icon: <span className="text-sm font-semibold">↓</span> },
   { title: "Uppgift · åtagande · idé · projekt", text: "Navet föreslår typ, datum, person och projekt utifrån orden. Du sorterar när det passar.", icon: <span className="text-sm font-semibold">✓</span> },
 ];
@@ -100,7 +100,7 @@ function Steps({ steps }: { steps: { title: string; text: string; icon: React.Re
               <span
                 className={
                   s.accent
-                    ? "flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white"
+                    ? "flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-on-accent"
                     : "flex size-10 shrink-0 items-center justify-center rounded-xl bg-subtle text-ink-2"
                 }
               >

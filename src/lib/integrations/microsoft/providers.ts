@@ -1,26 +1,32 @@
 import "server-only";
-import type { CalendarEvent, FlaggedMail } from "../../types";
+import type { CalendarEvent, MailMessage, MailSummary, RemoteProviderKind } from "../../types";
 import type { NavetStore } from "../../server/store";
-import { outlookConfigured } from "../../server/env";
-import { loadMsConnection, msAccessToken } from "./connection";
-import { graphCalendarView, graphFlaggedMail } from "./graph";
+import { env, integrationsUnlocked, outlookConfigured, sessionSecretOk } from "../../server/env";
+import type { IntegrationState } from "../types";
+import { loadMsConnection, loadMsHealth, msAccessToken, recordMsResult, type MsConnection, type MsHealth } from "./connection";
+import { graphCalendarView, graphFlaggedMail, graphMailSummary } from "./graph";
+import type { MsFeature } from "./scopes";
 
 export interface CalendarProvider {
-  readonly kind: "demo" | "outlook";
+  readonly kind: RemoteProviderKind;
+  readonly state: IntegrationState;
   /** tzOffset: minutes as returned by Date#getTimezoneOffset() in the browser */
   listEvents(from: Date, to: Date, tzOffset?: number): Promise<CalendarEvent[]>;
 }
 
 export interface MailProvider {
-  readonly kind: "demo" | "outlook";
-  listFlagged(): Promise<FlaggedMail[]>;
+  readonly kind: RemoteProviderKind;
+  readonly state: IntegrationState;
+  listFlagged(): Promise<MailMessage[]>;
+  summary(): Promise<MailSummary>;
 }
 
 const DAY = 86400_000;
 
-/** Demo calendar until Microsoft Graph is connected. Generates a believable week. */
+/** Sample calendar, only used in demo mode (NAVET_DEMO=1). Generates a believable week. */
 export class DemoCalendarProvider implements CalendarProvider {
   readonly kind = "demo" as const;
+  readonly state = "connected" as const;
 
   async listEvents(from: Date, to: Date, tzOffset = 0) {
     const events: CalendarEvent[] = [];
@@ -66,10 +72,12 @@ export class DemoCalendarProvider implements CalendarProvider {
   }
 }
 
+/** Sample mail, only used in demo mode (NAVET_DEMO=1). */
 export class DemoMailProvider implements MailProvider {
   readonly kind = "demo" as const;
+  readonly state = "connected" as const;
 
-  async listFlagged(): Promise<FlaggedMail[]> {
+  async listFlagged(): Promise<MailMessage[]> {
     const now = Date.now();
     const h = (n: number) => new Date(now - n * 3600_000).toISOString();
     return [
@@ -80,6 +88,9 @@ export class DemoMailProvider implements MailProvider {
         subject: "Kan du skicka offert senast fredag?",
         preview: "Hej! Vi vill gärna gå vidare med UGL för vår ledningsgrupp. Kan du skicka en offert senast fredag?",
         receivedAt: h(3),
+        isRead: false,
+        flagged: true,
+        importance: "high",
         source: "demo",
       },
       {
@@ -89,6 +100,8 @@ export class DemoMailProvider implements MailProvider {
         subject: "Presentationen till tisdag",
         preview: "Tack för senast! Du nämnde att du skulle skicka presentationen innan tisdag – går det fortfarande bra?",
         receivedAt: h(20),
+        isRead: true,
+        flagged: true,
         source: "demo",
       },
       {
@@ -98,6 +111,8 @@ export class DemoMailProvider implements MailProvider {
         subject: "Betyg för kursen Ledarskap 1",
         preview: "Påminnelse: betygen för Ledarskap 1 behöver rapporteras in senast den 15 oktober.",
         receivedAt: h(28),
+        isRead: true,
+        flagged: true,
         source: "demo",
       },
       {
@@ -107,33 +122,113 @@ export class DemoMailProvider implements MailProvider {
         subject: "Idé: digital uppföljning efter UGL",
         preview: "Jag funderade på om man kunde ha en digital uppföljning tre månader efter kursveckan. Vad tror du?",
         receivedAt: h(50),
+        isRead: true,
+        flagged: true,
         source: "demo",
       },
     ];
+  }
+
+  async summary(): Promise<MailSummary> {
+    const flagged = await this.listFlagged();
+    return {
+      unreadCount: flagged.filter((m) => !m.isRead).length,
+      flaggedCount: flagged.length,
+      flaggedMore: false,
+      important: flagged.filter((m) => m.importance === "high"),
+      flagged,
+      latest: flagged,
+    };
+  }
+}
+
+const EMPTY_SUMMARY: MailSummary = { unreadCount: null, flaggedCount: null, flaggedMore: false, important: [], flagged: [], latest: [] };
+
+/** Nothing is connected: return nothing. Navet never shows made-up data as if it were real. */
+class NoCalendarProvider implements CalendarProvider {
+  readonly kind = "none" as const;
+  constructor(readonly state: IntegrationState) {}
+  async listEvents() {
+    return [];
+  }
+}
+
+class NoMailProvider implements MailProvider {
+  readonly kind = "none" as const;
+  constructor(readonly state: IntegrationState) {}
+  async listFlagged() {
+    return [];
+  }
+  async summary() {
+    return EMPTY_SUMMARY;
+  }
+}
+
+/** Runs a Graph call for a feature and remembers how it went ("senaste synkronisering" / last error). */
+async function tracked<T>(store: NavetStore, feature: MsFeature, call: (token: string) => Promise<T>): Promise<T> {
+  try {
+    const result = await call(await msAccessToken(store, feature));
+    await recordMsResult(store, feature, null);
+    return result;
+  } catch (err) {
+    await recordMsResult(store, feature, err);
+    throw err;
   }
 }
 
 class OutlookCalendarProvider implements CalendarProvider {
   readonly kind = "outlook" as const;
-  constructor(private store: NavetStore) {}
-  async listEvents(from: Date, to: Date) {
-    return graphCalendarView(await msAccessToken(this.store), from, to);
+  constructor(
+    private store: NavetStore,
+    readonly state: IntegrationState,
+  ) {}
+  listEvents(from: Date, to: Date) {
+    return tracked(this.store, "calendar", (token) => graphCalendarView(token, from, to));
   }
 }
 
 class OutlookMailProvider implements MailProvider {
   readonly kind = "outlook" as const;
-  constructor(private store: NavetStore) {}
-  async listFlagged() {
-    return graphFlaggedMail(await msAccessToken(this.store));
+  constructor(
+    private store: NavetStore,
+    readonly state: IntegrationState,
+  ) {}
+  listFlagged() {
+    return tracked(this.store, "mail", graphFlaggedMail);
+  }
+  summary() {
+    return tracked(this.store, "mail", graphMailSummary);
   }
 }
 
-/** Outlook when connected, otherwise demo data. */
+export interface MsFeatureStatus {
+  state: IntegrationState;
+  connection: MsConnection | null;
+  health: MsHealth;
+}
+
+/** Where one part of the Microsoft connection (mail or calendar) stands right now. */
+export async function msFeatureStatus(store: NavetStore, feature: MsFeature): Promise<MsFeatureStatus> {
+  const health = await loadMsHealth(store);
+  if (!outlookConfigured() || !sessionSecretOk()) return { state: "not_configured", connection: null, health };
+  if (!integrationsUnlocked()) return { state: "locked", connection: null, health };
+  const connection = await loadMsConnection(store);
+  if (!connection || !connection.features[feature]) return { state: "disconnected", connection, health };
+  if (health.needsReauth) return { state: "needs_reauth", connection, health };
+  return { state: health[feature].lastError ? "error" : "connected", connection, health };
+}
+
+const usable = (state: IntegrationState) => state === "connected" || state === "error";
+
+/** Outlook when connected, sample data only in demo mode, otherwise nothing. */
 export async function getCalendarProvider(store: NavetStore): Promise<CalendarProvider> {
-  return outlookConfigured() && (await loadMsConnection(store)) ? new OutlookCalendarProvider(store) : new DemoCalendarProvider();
+  const { state } = await msFeatureStatus(store, "calendar");
+  if (usable(state)) return new OutlookCalendarProvider(store, state);
+  return env.demoMode ? new DemoCalendarProvider() : new NoCalendarProvider(state);
 }
 
 export async function getMailProvider(store: NavetStore): Promise<MailProvider> {
-  return outlookConfigured() && (await loadMsConnection(store)) ? new OutlookMailProvider(store) : new DemoMailProvider();
+  const { state } = await msFeatureStatus(store, "mail");
+  if (usable(state)) return new OutlookMailProvider(store, state);
+  return env.demoMode ? new DemoMailProvider() : new NoMailProvider(state);
 }

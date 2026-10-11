@@ -4,7 +4,8 @@
 export const ITEM_TYPES = ["task", "idea", "commitment", "note", "waiting", "reminder", "request"] as const;
 export type ItemType = (typeof ITEM_TYPES)[number];
 
-export const ITEM_STATUSES = ["inbox", "open", "waiting", "done", "archived"] as const;
+// open = "Att göra", in_progress = "Pågår", done = "Klart"
+export const ITEM_STATUSES = ["inbox", "open", "in_progress", "waiting", "done", "archived"] as const;
 export type ItemStatus = (typeof ITEM_STATUSES)[number];
 
 export const ITEM_SOURCES = ["manual", "voice", "google_tasks", "outlook_mail", "outlook_calendar", "web_form"] as const;
@@ -109,10 +110,15 @@ export interface CalendarEvent {
   allDay?: boolean;
   /** Open in Outlook */
   link?: string;
+  /** Join link for an online meeting (Teams), when the event has one */
+  onlineUrl?: string;
+  organizer?: string;
+  /** free | tentative | busy | oof | workingElsewhere */
+  showAs?: string;
   source: "demo" | "outlook_calendar";
 }
 
-export interface FlaggedMail {
+export interface MailMessage {
   id: string;
   from: string;
   fromEmail: string;
@@ -121,8 +127,31 @@ export interface FlaggedMail {
   receivedAt: string;
   /** Open in Outlook */
   link?: string;
+  isRead?: boolean;
+  flagged?: boolean;
+  importance?: "low" | "normal" | "high";
+  hasAttachments?: boolean;
+  /** Messages in the same thread share this id */
+  conversationId?: string;
   source: "demo" | "outlook_mail";
 }
+
+/** Kept for the "Mail att hantera" page, which lists flagged messages. */
+export type FlaggedMail = MailMessage;
+
+/** What the start page shows about the mailbox. Counts are null when they are unknown. */
+export interface MailSummary {
+  unreadCount: number | null;
+  flaggedCount: number | null;
+  /** True when there are more flagged messages than the ones returned */
+  flaggedMore: boolean;
+  important: MailMessage[];
+  flagged: MailMessage[];
+  latest: MailMessage[];
+}
+
+/** Where a calendar or mail response came from. "none" = nothing connected, so nothing is shown. */
+export type RemoteProviderKind = "demo" | "outlook" | "none";
 
 export interface SessionUser {
   id: string;

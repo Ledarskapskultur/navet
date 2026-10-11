@@ -29,9 +29,18 @@ export class NavetService {
     this.provider = getTasksProvider(ctx, store);
   }
 
+  /** First-run seeding per workspace, shared by requests that arrive at the same time. */
+  private static seeding = new Map<string, Promise<void>>();
+
   static async create(ctx: RequestContext) {
     const svc = new NavetService(ctx, await getStore());
-    await svc.ensureSeeded();
+    // Two requests on a brand-new workspace must not both create the welcome content.
+    let pending = NavetService.seeding.get(svc.userId);
+    if (!pending) {
+      pending = svc.ensureSeeded().finally(() => NavetService.seeding.delete(svc.userId));
+      NavetService.seeding.set(svc.userId, pending);
+    }
+    await pending;
     return svc;
   }
 
@@ -76,6 +85,7 @@ export class NavetService {
 
   async resetDemo() {
     if (this.ctx.mode !== "demo") throw new Error("Endast demoläget kan återställas.");
+    await NavetService.seeding.get(this.userId);
     await this.store.clearUser(this.userId);
     await this.ensureSeeded();
   }

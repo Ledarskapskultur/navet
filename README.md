@@ -1,8 +1,11 @@
 # Navet
 
-**Navet** är en personlig arbetsyta som samlar uppgifter, löften, idéer, anteckningar och kalender på ett ställe. Senare kommer även flaggade Outlook-mail in här.
+**Navet** är ett personligt arbetsnav som samlar uppgifter, löften, idéer, anteckningar, mejl och kalender på ett ställe.
 
-Grundprincipen är att **Navet är huvudsystemet**. Navet fungerar **fullt ut på egen hand, utan Google-konto** (personligt läge, standard). Google Tasks och senare Outlook är *valfria* integrationskällor.
+Grundprincipen är att **Navet är huvudsystemet**. Navet fungerar **fullt ut på egen hand** (personligt läge, standard). Microsoft Outlook, Microsoft Kalender, LinkedIn och Google Tasks är *valfria* integrationer som ansluts under **Integrationer**.
+
+- Arkitektur, faser och vad som fungerar i dag: [docs/arkitektur.md](docs/arkitektur.md)
+- Konfigurera Entra ID och LinkedIn, redirect-URI:er och behörigheter: [docs/integrationer.md](docs/integrationer.md)
 
 ## Snabbast i drift (utan Google)
 
@@ -44,7 +47,7 @@ Resten av den här README:n beskriver även den valfria Google-kopplingen:
 - [Datamodell](#datamodell)
 - [Så fungerar synken](#så-fungerar-synken)
 - [Säkerhet](#säkerhet)
-- [Nästa steg: Outlook / Microsoft Graph](#nästa-steg-outlook--microsoft-graph)
+- [Integrationer: Outlook, kalender och LinkedIn](#integrationer-outlook-kalender-och-linkedin)
 
 ---
 
@@ -52,19 +55,21 @@ Resten av den här README:n beskriver även den valfria Google-kopplingen:
 
 | Sektion | Vad den gör |
 |---|---|
-| **Idag** (startsida) | ”God morgon”, *Viktigast idag* (3–5 saker), kalendern för dagen som en kompakt tidslinje, *Behöver din uppmärksamhet* (försenade, flaggade mail, väntar på, nytt i inkorgen), inkorgen och projekten |
+| **Idag** (startsida) | Dagens datum, nästa möte, olästa mejl, mejl att följa upp och dagens aktiviteter. Paneler för uppgifter (*Viktigast idag*, Att göra, Pågår, Klart), Outlook (senaste, flaggade, viktiga), kalender (dagens agenda, kommande möten, boka möte) och LinkedIn, samt *Behöver din uppmärksamhet*, inkorgen och projekten |
+| **Integrationer** | Ett kort per tjänst: Microsoft Outlook, Microsoft Kalender och LinkedIn. Anslut konto, koppla från, status, senaste synkronisering, behörigheter, fel och försök igen |
 | **Inkorg** | Allt som inte är sorterat än. Du ändrar typ, projekt, deadline och status direkt i kortet och klickar på *Sorterad* |
-| **Att göra** | Alla aktiva uppgifter. Filter: Idag, Kommande, Försenade, Utan datum, Projekt, Prioritet och Källa |
+| **Att göra** | Alla aktiva uppgifter med status Att göra eller Pågår. Filter: Idag, Kommande, Försenade, Utan datum, Projekt, Prioritet och Källa |
 | **Väntar på** | Vad du väntar på, från vem, datum och senaste uppföljning. Knappar för *Följt upp idag* och *Mottaget* |
 | **Åtaganden** | Det du har lovat andra, till exempel ”Jag lovade Martin att skicka presentationen på tisdag” |
 | **Idéer** | Idéer och anteckningar. En idé kan göras om till uppgift, projekt eller anteckning |
 | **Projekt** | UGL Sverige, Ledarskapsmetoden, YH / undervisning, Företaget och Privat. Varje projekt visar öppna uppgifter, idéer, åtaganden, väntar på och senaste aktivitet |
-| **Kalender** | Veckovy med demomöten och dina riktiga deadlines från Navet. *Outlook-integration kommer senare* |
-| **Mail att hantera** | Förhandsvisning av flaggade Outlook-mail med Navets tolkning (vad som ska göras, deadline, projekt, källa). Outlook är inte aktivt än |
+| **Kalender** | Veckovy med möten från Outlook och dina deadlines från Navet. Utan anslutet konto visas bara deadlines, aldrig exempelmöten |
+| **Mail att hantera** | Flaggade Outlook-mejl med Navets tolkning (vad som ska göras, deadline, projekt, källa) och knapp för att skapa en uppgift |
 | **Google Tasks** | Alla listor. Här kan du skapa, redigera, ändra datum, markera som klar, flytta och radera. Sidan visar synkstatus och har en knapp för *Synka nu* |
 | **Röst & Google** | Flödet Hey Google → Google Tasks → Navet förklarat visuellt, plus de senaste objekten som kommit från Google Tasks |
 | **+ Fånga** | Snabbfångst från alla sidor: knappen i menyn, den runda knappen på mobilen och tangenterna `N` eller `Ctrl/⌘+K`. Texten tolkas på svenska, tolkningen visas innan du sparar och du kan tala in text med mikrofonen |
 | **PWA** | Appen kan installeras på hemskärmen på Android och iPhone och fungerar som ett enkelt offline-skal |
+| **Ljus och mörk vy** | Väljs i sidomenyn eller under Inställningar. Automatiskt följer enhetens inställning |
 
 ### Snabbfångst – regelbaserad tolkning
 
@@ -97,7 +102,9 @@ src/
 │  ├─ api/auth/google/…      OAuth-inloggning, callback, utloggning
 │  ├─ api/items, projects    CRUD (synkar mot Google vid behov)
 │  ├─ api/sync               Tvåvägssynk med Google Tasks
-│  ├─ api/calendar, mail     Demo-providers (Outlook senare)
+│  ├─ api/integrations       Status, test och frånkoppling per integration
+│  ├─ api/auth/microsoft     OAuth mot Microsoft Entra ID
+│  ├─ api/calendar, mail     Kalender och mejl via Microsoft Graph
 │  └─ manifest.ts            PWA-manifest
 ├─ components/               App-skal, Fånga, editor, listor, UI
 ├─ lib/
@@ -111,7 +118,8 @@ src/
 │  │  └─ supabase-store.ts   Postgres
 │  └─ integrations/
 │     ├─ google/             OAuth, Tasks-klient, mock för demoläge
-│     └─ microsoft/          Graph-klient (förberedd) + demo-providers
+│     ├─ types, status, test Gemensam integrationsmodell
+│     └─ microsoft/          Entra-inloggning, behörigheter, krypterad anslutning, Graph
 supabase/migrations/         SQL-schema
 public/sw.js, icons/         Service worker + appikoner
 ```
@@ -195,7 +203,7 @@ Kopiera `.env.example` till `.env.local`:
 
 | Variabel | Krävs | Beskrivning |
 |---|---|---|
-| `APP_PASSWORD` | Rekommenderas | Lösenord som skyddar hela appen. Anges en gång per enhet |
+| `APP_PASSWORD` | Ja på internet | Lösenord som skyddar hela appen. Anges en gång per enhet. Utan lösenord på en publik adress stängs integrationerna av |
 | `NAVET_DEMO` | Nej | `1` = visa exempeldata och simulerad Google Tasks |
 | `APP_URL` | Ja (för Google) | Bas-URL, t.ex. `http://localhost:3000` |
 | `SESSION_SECRET` | Ja i produktion | Minst 32 tecken. Krypterar sessionen med Google-tokens. Generera med `openssl rand -base64 48` |
@@ -203,10 +211,11 @@ Kopiera `.env.example` till `.env.local`:
 | `GOOGLE_CLIENT_SECRET` | För riktig Google | Från steg 4 |
 | `SUPABASE_URL` | Rekommenderas i produktion | Supabase → Project Settings → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Rekommenderas i produktion | *service_role*-nyckeln. Används bara på servern |
-| `MICROSOFT_CLIENT_ID` / `_SECRET` / `_TENANT_ID` | Nej (nästa steg) | För Outlook via Microsoft Graph |
+| `MICROSOFT_CLIENT_ID` / `_SECRET` / `_TENANT_ID` | För Outlook och kalender | Appregistreringen i Entra ID, se docs/integrationer.md |
+| `LINKEDIN_CLIENT_ID` / `_SECRET` | Nej (fas 4) | Appen på LinkedIn Developers, se docs/integrationer.md |
 | `NAVET_DATA_DIR` | Nej | Annan katalog för den filbaserade lagringen |
 
-**Supabase (valfritt):** skapa ett projekt på <https://supabase.com>. Kör sedan SQL:en i `supabase/migrations/0001_navet.sql` i *SQL Editor*, eller med `supabase db push` om du använder Supabase CLI, och sätt de två variablerna. Tabellerna har RLS påslaget utan policies, så `anon`-nyckeln kommer inte åt någon data. All åtkomst går via Next.js-servern.
+**Supabase (valfritt):** skapa ett projekt på <https://supabase.com>. Kör sedan SQL-filerna i `supabase/migrations/` i nummerordning i *SQL Editor*, eller med `supabase db push` om du använder Supabase CLI, och sätt de två variablerna. Tabellerna har RLS påslaget utan policies, så `anon`-nyckeln kommer inte åt någon data. All åtkomst går via Next.js-servern.
 
 ## 7. Testa appen
 
@@ -253,7 +262,7 @@ Kopiera `.env.example` till `.env.local`:
 | `id` | string | UUID |
 | `title`, `description` | string | `description` ↔ Google `notes` |
 | `type` | `task` · `idea` · `commitment` · `note` · `waiting` · `reminder` | |
-| `status` | `inbox` · `open` · `waiting` · `done` · `archived` | `done` ↔ Google `completed` |
+| `status` | `inbox` · `open` (Att göra) · `in_progress` (Pågår) · `waiting` · `done` (Klart) · `archived` | `done` ↔ Google `completed` |
 | `source` | `manual` · `voice` · `google_tasks` · `outlook_mail` · `outlook_calendar` | Varifrån objektet kom |
 | `projectId` | string \| null | |
 | `dueDate`, `dueTime` | `YYYY-MM-DD`, `HH:mm` | Google lagrar bara datum. Tiden finns bara i Navet |
@@ -283,19 +292,17 @@ Typ, projekt, prioritet, tid och tidsåtgång finns bara i Navet. Det är den ex
 - Supabase används bara på servern med service role-nyckeln, och RLS spärrar all annan åtkomst.
 - Vid utloggning raderas sessionen. Med `POST /api/auth/logout?revoke=1` återkallas även token hos Google.
 
-## Nästa steg: Outlook / Microsoft Graph
+## Integrationer: Outlook, kalender och LinkedIn
 
-Arkitekturen är förberedd:
+Alla integrationer följer samma modell och visas under **Integrationer** i appen.
 
-- `src/lib/integrations/microsoft/graph.ts` innehåller anrop till `/me/calendarView` och flaggade mail (`flag/flagStatus eq 'flagged'`).
-- `src/lib/integrations/microsoft/providers.ts` innehåller interfacen `CalendarProvider` och `MailProvider` med demoimplementationer.
+- Inloggning sker med OAuth hos tjänsten (authorization code med PKCE). Navet ser aldrig ditt lösenord.
+- Nycklarna sparas krypterade på servern och når aldrig webbläsaren.
+- Navet ber bara om de behörigheter som används, och ber om fler först när en funktion kräver det.
+- Utan anslutet konto visas ingenting. Exempeldata finns bara i demoläget.
+- Allt som skickar, publicerar, ändrar eller raderar kräver ditt godkännande.
 
-För att koppla in Outlook på riktigt:
-
-1. Registrera en app i Entra ID (Azure AD). Redirect: `<APP_URL>/api/auth/microsoft/callback`. Scopes: `offline_access User.Read Calendars.Read Mail.Read`.
-2. Lägg till en OAuth-route enligt samma mönster som Google och spara tokens i sessionen.
-3. Låt `getCalendarProvider()` och `getMailProvider()` returnera Graph-implementationer när användaren är inloggad.
-4. ”Skapa i Navet” på mailsidan skapar redan objekt med `source: "outlook_mail"`.
+Läs mer i [docs/arkitektur.md](docs/arkitektur.md) och [docs/integrationer.md](docs/integrationer.md).
 
 ---
 
@@ -346,7 +353,3 @@ Utan skriptet fungerar formuläret ändå: besökaren skickas tillbaka till sida
 Navet har ett röst-API (`POST /api/assistant`, skyddat med `NAVET_API_TOKEN`) som Tasker kan anropa i bakgrunden – du kan fråga Navet och spara saker utan att låsa upp telefonen. Steg-för-steg: [docs/tasker.md](docs/tasker.md).
 
 ---
-
-## Outlook (kalender och flaggade mail)
-
-Navet läser Outlook-kalendern och flaggade mail via Microsoft Graph (läsbehörighet). Kopplingen sparas krypterad på servern och gäller alla enheter. Steg-för-steg för Entra och Vercel: [docs/outlook.md](docs/outlook.md).

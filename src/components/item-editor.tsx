@@ -253,7 +253,7 @@ function EditorBody({ item }: { item: NavetItem }) {
         ) : lists.length ? (
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={pushToGoogle} onChange={(e) => setPushToGoogle(e.target.checked)} className="size-4 accent-[#2f5d4e]" />
+              <input type="checkbox" checked={pushToGoogle} onChange={(e) => setPushToGoogle(e.target.checked)} className="size-4 accent-accent" />
               Skapa i Google Tasks när jag sparar
             </label>
             {pushToGoogle && (
@@ -275,7 +275,7 @@ function EditorBody({ item }: { item: NavetItem }) {
           <div className="flex flex-wrap items-center gap-3">
             {linked && (
               <label className="flex items-center gap-2 text-sm text-ink-2">
-                <input type="checkbox" checked={deleteExternal} onChange={(e) => setDeleteExternal(e.target.checked)} className="size-4 accent-[#9a4f2c]" />
+                <input type="checkbox" checked={deleteExternal} onChange={(e) => setDeleteExternal(e.target.checked)} className="size-4 accent-warn" />
                 Radera även i Google Tasks
               </label>
             )}

@@ -11,6 +11,8 @@ export const env = {
   msClientId: process.env.MICROSOFT_CLIENT_ID || null,
   msClientSecret: process.env.MICROSOFT_CLIENT_SECRET || null,
   msTenantId: process.env.MICROSOFT_TENANT_ID || "common",
+  linkedinClientId: process.env.LINKEDIN_CLIENT_ID || null,
+  linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET || null,
   dataDir: process.env.NAVET_DATA_DIR || null,
   /** Optional password that protects the whole app */
   appPassword: process.env.APP_PASSWORD || null,
@@ -29,10 +31,33 @@ export const secureCookies = () => (env.appUrl ? env.appUrl.startsWith("https://
 export const googleConfigured = () => Boolean(env.googleClientId && env.googleClientSecret);
 export const supabaseConfigured = () => Boolean(env.supabaseUrl && env.supabaseServiceRoleKey);
 export const outlookConfigured = () => Boolean(env.msClientId && env.msClientSecret);
+export const linkedinConfigured = () => Boolean(env.linkedinClientId && env.linkedinClientSecret);
+
+/** True when Navet is reachable from the internet (Vercel, or an https APP_URL that isn't localhost). */
+export function isPublicDeployment(): boolean {
+  if (process.env.VERCEL) return true;
+  if (!env.appUrl) return false;
+  try {
+    const { protocol, hostname } = new URL(env.appUrl);
+    return protocol === "https:" && hostname !== "localhost" && hostname !== "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Integrations give access to mail, calendar and LinkedIn. On a public deployment they are
+ * only served when the whole app is behind APP_PASSWORD – otherwise anyone with the link
+ * could read the connected accounts.
+ */
+export const integrationsUnlocked = () => Boolean(env.appPassword) || !isPublicDeployment();
+
+/** In production the secret that encrypts stored tokens must be set explicitly. */
+export const sessionSecretOk = () => Boolean(env.sessionSecret && env.sessionSecret.length >= 32) || !env.isProd;
 
 export function sessionSecret(): string {
   if (env.sessionSecret && env.sessionSecret.length >= 32) return env.sessionSecret;
-  if (env.isProd && (googleConfigured() || outlookConfigured())) {
+  if (env.isProd && (googleConfigured() || outlookConfigured() || linkedinConfigured())) {
     throw new Error("SESSION_SECRET måste vara satt (minst 32 tecken) i produktion.");
   }
   // Development fallback so the app runs without configuration.

@@ -23,7 +23,7 @@ export function VoiceLaunchSetting() {
           type="checkbox"
           checked={on}
           onChange={(e) => setVoiceOnLaunch(e.target.checked)}
-          className="mt-0.5 size-4 accent-[#2f5d4e]"
+          className="mt-0.5 size-4 accent-accent"
         />
         <span>
           <span className="flex items-center gap-2 font-medium text-ink">
@@ -40,7 +40,7 @@ export function VoiceLaunchSetting() {
           type="checkbox"
           checked={greeting}
           onChange={(e) => setVoiceGreeting(e.target.checked)}
-          className="mt-0.5 size-4 accent-[#2f5d4e]"
+          className="mt-0.5 size-4 accent-accent"
         />
         <span>
           <span className="flex items-center gap-2 font-medium text-ink">

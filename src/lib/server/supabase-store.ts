@@ -87,7 +87,13 @@ export class SupabaseStore implements NavetStore {
   }
 
   private check<T>(res: { data: T; error: { message: string } | null }): T {
-    if (res.error) throw new Error(`Supabase: ${res.error.message}`);
+    if (res.error) {
+      // The "Pågår" status needs migration 0003 – say so instead of showing a raw constraint error.
+      if (res.error.message.includes("navet_items_status_check")) {
+        throw new Error("Databasen känner inte till statusen Pågår än. Kör supabase/migrations/0003_in_progress.sql i Supabase.");
+      }
+      throw new Error(`Supabase: ${res.error.message}`);
+    }
     return res.data;
   }
 

@@ -19,9 +19,10 @@ export const STAGE_LABEL: Record<RequestStage, string> = {
 
 export const STATUS_LABEL: Record<ItemStatus, string> = {
   inbox: "Inkorg",
-  open: "Aktiv",
+  open: "Att göra",
+  in_progress: "Pågår",
   waiting: "Väntar",
-  done: "Klar",
+  done: "Klart",
   archived: "Arkiverad",
 };
 

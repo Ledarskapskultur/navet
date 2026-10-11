@@ -90,9 +90,10 @@ function TriageCard({ item }: { item: NavetItem }) {
             aria-label="Status"
           >
             <option value="">Status…</option>
-            <option value="open">Aktiv</option>
+            <option value="open">Att göra</option>
+            <option value="in_progress">Pågår</option>
             <option value="waiting">Väntar</option>
-            <option value="done">Klar</option>
+            <option value="done">Klart</option>
             <option value="archived">Arkivera</option>
           </select>
           <Button variant="primary" onClick={file} className="shrink-0">

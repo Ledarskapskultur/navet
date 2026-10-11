@@ -55,6 +55,7 @@ describe("Outlook", () => {
     await conn.saveMsConnection(store, {
       accessToken: "old", refreshToken: "r1", expiresAt: Date.now() - 1000,
       account: { name: "Carl-Fredrik", email: "cf@x.se" }, connectedAt: new Date().toISOString(),
+      scopes: ["Calendars.Read", "Mail.Read", "User.Read"], features: { mail: true, calendar: true },
     });
     const raw = JSON.stringify(await store.getKV("me", "microsoft_connection"));
     expect(raw).not.toContain("r1"); // encrypted at rest

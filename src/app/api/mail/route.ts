@@ -8,10 +8,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const provider = await getMailProvider(await getStore());
   try {
-    return NextResponse.json({ provider: provider.kind, mails: await provider.listFlagged() });
+    return NextResponse.json({ provider: provider.kind, state: provider.state, mails: await provider.listFlagged() });
   } catch (err) {
-    console.error("[navet] mail", err);
-    const message = err instanceof GraphAuthError ? err.message : "Kunde inte hämta mail från Outlook just nu.";
-    return NextResponse.json({ provider: provider.kind, mails: [], error: message });
+    console.error("[navet] mail", (err as Error).message);
+    return NextResponse.json({ provider: provider.kind, state: err instanceof GraphAuthError ? "needs_reauth" : "error", mails: [], error: (err as Error).message || "Kunde inte hämta mejl från Outlook just nu." });
   }
 }

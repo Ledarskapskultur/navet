@@ -1,30 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CalendarDays } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useNavet } from "@/components/navet-provider";
 import { ItemList } from "@/components/item-row";
-import { Card, EmptyState, Section, Button } from "@/components/ui";
-import { CalendarTimeline } from "@/components/calendar-timeline";
-import { useCalendar } from "@/hooks/use-remote";
-import { formatLongDate, greeting, todayISO } from "@/lib/dates";
-import { byDue, byNewest, isActionable, isActive, isDueToday, isOverdue, mostImportant } from "@/lib/selectors";
+import { EmptyState, Section } from "@/components/ui";
+import { MailPanel } from "@/components/dashboard/mail-panel";
+import { CalendarPanel, LinkedInPanel } from "@/components/dashboard/side-panels";
+import { SummaryStrip } from "@/components/dashboard/summary-strip";
+import { TasksPanel } from "@/components/dashboard/tasks-panel";
+import { useCalendar, useIntegrations, useMailSummary } from "@/hooks/use-remote";
+import { formatLongDate, greeting, todayISO, toISODate } from "@/lib/dates";
+import { byNewest, isActionable, isActive, isDueToday, isOverdue } from "@/lib/selectors";
 
 export default function TodayPage() {
-  const { items, projects, openCapture, status } = useNavet();
-  const calendar = useCalendar();
-  const events = calendar.data;
+  const { items, projects, status } = useNavet();
+  // Today and the coming week: enough for today's agenda, upcoming meetings and "nästa möte".
+  const calendar = useCalendar(undefined, 7);
+  const mail = useMailSummary();
+  const { integrations } = useIntegrations();
   const today = todayISO();
 
-  const important = mostImportant(items, 5, today);
-  const importantIds = new Set(important.map((i) => i.id));
-  const dueToday = items.filter((i) => isDueToday(i, today) && !importantIds.has(i.id) && i.type !== "waiting").sort(byDue);
+  const events = calendar.data;
+  const calendarLive = calendar.provider === "outlook" || calendar.provider === "demo";
+  const meetingsToday = (events ?? []).filter((e) => (e.allDay ? e.start.slice(0, 10) : toISODate(new Date(e.start))) === today).length;
+
   const overdue = items.filter((i) => isOverdue(i, today) && isActionable(i));
   const waiting = items.filter((i) => i.type === "waiting" && isActive(i));
   const inbox = items.filter((i) => i.status === "inbox").sort(byNewest);
   const newRequests = items.filter((i) => i.type === "request" && isActive(i) && (i.stage ?? "new") === "new").length;
   const todayCount = items.filter((i) => isDueToday(i, today) && isActionable(i)).length;
-  const firstName = status?.user?.name?.split(" ")[0];
+  const firstName = (status?.user?.name ?? status?.outlook?.name)?.split(" ")[0];
 
   const attention = [
     { n: overdue.length, label: overdue.length === 1 ? "försenad uppgift" : "försenade uppgifter", href: "/att-gora?filter=overdue", tone: "warn" },
@@ -33,43 +39,36 @@ export default function TodayPage() {
     { n: inbox.length, label: inbox.length === 1 ? "ny sak i inkorgen" : "nya saker i inkorgen", href: "/inkorg", tone: "accent" },
   ];
 
+  // "Du har 3 saker planerade idag, 1 försenad och 2 möten."
+  const parts: string[] = [];
+  if (todayCount > 0) parts.push(`${todayCount} ${todayCount === 1 ? "sak planerad" : "saker planerade"} idag`);
+  if (overdue.length) parts.push(`${overdue.length} ${overdue.length === 1 ? "försenad uppgift" : "försenade uppgifter"}`);
+  if (calendarLive && meetingsToday > 0) parts.push(`${meetingsToday} ${meetingsToday === 1 ? "möte" : "möten"}${todayCount > 0 ? "" : " idag"}`);
+  const sentence = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} och ${parts.at(-1)}` : parts[0];
+
   return (
     <div>
-      <header className="mb-10">
+      <header className="mb-8">
         <p className="text-sm font-medium text-ink-3">{formatLongDate()}</p>
         <h1 className="mt-1 text-4xl font-semibold tracking-tight sm:text-5xl">
           {greeting()}
           {firstName ? `, ${firstName}` : ""}
         </h1>
         <p className="mt-3 text-[15px] text-ink-2">
-          {todayCount > 0
-            ? `Du har ${todayCount} ${todayCount === 1 ? "sak" : "saker"} planerade idag${overdue.length ? `, ${overdue.length} försenade` : ""} och ${events?.length ?? 0} möten.`
-            : "Inget planerat idag ännu – fånga det som snurrar i huvudet."}
+          {sentence ? `Du har ${sentence}.` : "Inget planerat idag ännu. Fånga det som snurrar i huvudet."}
         </p>
       </header>
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-12">
-        <div>
-          <Section title="Viktigast idag" count={important.length}>
-            <ItemList
-              items={important}
-              empty={
-                <EmptyState
-                  title="Inget brådskande"
-                  text="Inga försenade eller prioriterade saker. Bra jobbat."
-                  action={<Button onClick={() => openCapture()}>+ Fånga något</Button>}
-                />
-              }
-            />
-          </Section>
+      <SummaryStrip events={events} calendarState={calendar.state} calendarLive={calendarLive} mail={mail} tasksToday={todayCount} />
 
-          {dueToday.length > 0 && (
-            <Section title="Också idag" count={dueToday.length}>
-              <ItemList items={dueToday} />
-            </Section>
-          )}
+      {/* Two columns on a wide screen. On a phone the columns dissolve (display: contents) so the
+          panels can be put in the order that suits a quick look: tasks, calendar, mail, the rest. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-12">
+        <div className="contents min-w-0 lg:block">
+          <TasksPanel className="order-1" />
+          <MailPanel mail={mail} className="order-3" />
 
-          <Section title="Behöver din uppmärksamhet">
+          <Section title="Behöver din uppmärksamhet" className="order-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {attention.map((a) => (
                 <Link key={a.href} href={a.href} className="group rounded-2xl border border-line bg-surface p-4 shadow-card transition-colors hover:border-line-strong">
@@ -87,6 +86,7 @@ export default function TodayPage() {
           </Section>
 
           <Section
+            className="order-5"
             title="Inkorg"
             count={inbox.length}
             action={
@@ -99,25 +99,11 @@ export default function TodayPage() {
           </Section>
         </div>
 
-        <aside>
-          <Section
-            title="Kalender idag"
-            action={
-              <Link href="/kalender" className="text-sm text-ink-2 hover:text-ink">
-                Vecka
-              </Link>
-            }
-          >
-            <Card className="p-4">
-              <CalendarTimeline events={events} />
-              <p className="mt-3 flex items-center gap-1.5 border-t border-line pt-3 text-xs text-ink-3">
-                <CalendarDays className="size-3.5" />{" "}
-                {calendar.error ?? (calendar.provider === "outlook" ? "Från din Outlook-kalender" : "Demokalender · koppla Outlook under Inställningar")}
-              </p>
-            </Card>
-          </Section>
+        <aside className="contents min-w-0 lg:block">
+          <CalendarPanel className="order-2" events={events} provider={calendar.provider} state={calendar.state} error={calendar.error} />
+          <LinkedInPanel className="order-6" integration={integrations?.find((i) => i.id === "linkedin") ?? null} />
 
-          <Section title="Projekt">
+          <Section title="Projekt" className="order-7">
             <div className="space-y-1">
               {projects
                 .filter((p) => !p.archived)

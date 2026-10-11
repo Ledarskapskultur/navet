@@ -33,7 +33,7 @@ function Unlock() {
   return (
     <div className="flex min-h-[80dvh] items-center justify-center">
       <form onSubmit={submit} className="w-full max-w-sm rounded-3xl border border-line bg-surface p-8 shadow-card">
-        <span className="mb-6 flex size-12 items-center justify-center rounded-2xl bg-accent text-white">
+        <span className="mb-6 flex size-12 items-center justify-center rounded-2xl bg-accent text-on-accent">
           <Lock className="size-5" />
         </span>
         <h1 className="text-2xl font-semibold tracking-tight">Navet</h1>

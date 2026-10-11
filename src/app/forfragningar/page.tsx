@@ -71,7 +71,7 @@ export default function RequestsPage() {
 }
 
 const STAGE_STYLE: Record<RequestStage, string> = {
-  new: "bg-accent text-white",
+  new: "bg-accent text-on-accent",
   answered: "bg-amber-soft text-amber",
   booked: "bg-accent-soft text-accent-strong",
   declined: "bg-subtle text-ink-3",
@@ -133,7 +133,7 @@ function RequestCard({ item }: { item: NavetItem }) {
           <a
             href={mailto}
             onClick={() => void move("answered")}
-            className="inline-flex h-8 items-center gap-2 rounded-xl bg-accent px-3 text-sm font-medium text-white hover:bg-accent-strong"
+            className="inline-flex h-8 items-center gap-2 rounded-xl bg-accent px-3 text-sm font-medium text-on-accent hover:bg-accent-strong"
           >
             <MessageCircle className="size-4" /> Svara via mail
           </a>
