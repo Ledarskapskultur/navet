@@ -58,7 +58,9 @@ describe("Outlook", () => {
       scopes: ["Calendars.Read", "Mail.Read", "User.Read"], features: { mail: true, calendar: true },
     });
     const raw = JSON.stringify(await store.getKV("me", "microsoft_connection"));
-    expect(raw).not.toContain("r1"); // encrypted at rest
+    // Encrypted at rest. Checked with the address, since "@" cannot occur in the sealed text by
+    // chance (a two-letter token like "r1" does, about one run in ten).
+    expect(raw).not.toContain("cf@x.se");
 
     vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
       expect(url).toBe("https://login.microsoftonline.com/tenant/oauth2/v2.0/token");
