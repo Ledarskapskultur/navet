@@ -192,21 +192,26 @@ export async function graphInboxCounts(token: string): Promise<{ unread: number;
   return { unread: f.unreadItemCount, total: f.totalItemCount };
 }
 
-/** Everything the start page shows about the mailbox, fetched in parallel. */
+/**
+ * Everything the start page shows about the mailbox, fetched in parallel. One failing part
+ * leaves that part empty (count unknown) instead of blanking the rest; a rejected sign-in,
+ * or everything failing, is an error.
+ */
 export async function graphMailSummary(token: string): Promise<MailSummary> {
-  const [counts, flagged, latest, important] = await Promise.all([
-    graphInboxCounts(token),
-    flaggedPage(token),
-    graphInboxLatest(token),
-    graphImportantMail(token),
-  ]);
+  const results = await Promise.allSettled([graphInboxCounts(token), flaggedPage(token), graphInboxLatest(token), graphImportantMail(token)]);
+  const failed = results.filter((r) => r.status === "rejected");
+  const auth = failed.find((r) => r.reason instanceof GraphAuthError);
+  if (auth) throw auth.reason;
+  if (failed.length === results.length) throw failed[0].reason;
+  const [counts, flagged, latest, important] = results;
+  const page = flagged.status === "fulfilled" ? flagged.value : null;
   return {
-    unreadCount: counts.unread,
-    flaggedCount: flagged["@odata.count"] ?? flagged.value.length,
-    flaggedMore: Boolean(flagged["@odata.nextLink"]) && flagged["@odata.count"] === undefined,
-    important,
-    flagged: flagged.value.map(toMail).sort(newestFirst).slice(0, 6),
-    latest,
+    unreadCount: counts.status === "fulfilled" ? counts.value.unread : null,
+    flaggedCount: page ? (page["@odata.count"] ?? page.value.length) : null,
+    flaggedMore: Boolean(page?.["@odata.nextLink"]) && page?.["@odata.count"] === undefined,
+    important: important.status === "fulfilled" ? important.value : [],
+    flagged: page ? page.value.map(toMail).sort(newestFirst).slice(0, 6) : [],
+    latest: latest.status === "fulfilled" ? latest.value : [],
   };
 }
 
@@ -215,10 +220,10 @@ export async function graphCalendarInfo(token: string): Promise<{ name: string }
   return graph<{ name: string }>(token, "/me/calendar?$select=name");
 }
 
-export async function graphMe(token: string): Promise<{ name: string; email: string }> {
-  const me = await graph<{ displayName: string; mail: string | null; userPrincipalName: string }>(
+export async function graphMe(token: string): Promise<{ name: string; email: string; id?: string }> {
+  const me = await graph<{ id?: string; displayName: string; mail: string | null; userPrincipalName: string }>(
     token,
-    "/me?$select=displayName,mail,userPrincipalName",
+    "/me?$select=id,displayName,mail,userPrincipalName",
   );
-  return { name: me.displayName, email: me.mail ?? me.userPrincipalName };
+  return { name: me.displayName, email: me.mail ?? me.userPrincipalName, id: me.id };
 }

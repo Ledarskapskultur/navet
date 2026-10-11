@@ -10,7 +10,18 @@ export interface MsOAuthFlow {
   returnTo: string;
 }
 
-/** Only paths inside Navet – never an address someone else supplied. */
+/**
+ * Only paths inside Navet – never an address someone else supplied. Besides the obvious
+ * "//host", control characters are refused: URL parsing drops tabs and newlines, which
+ * would turn "/\t/evil.example" into "//evil.example".
+ */
 export function safeReturnPath(value: string | null | undefined, fallback = "/integrationer"): string {
-  return value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : fallback;
+  if (!value || !/^\/[A-Za-z0-9\-._~!$&'()*+,;=:@%/?]*$/.test(value) || value.startsWith("//")) return fallback;
+  return value;
+}
+
+/** Resolves a return path against the app's own address and refuses anything that leaves it. */
+export function returnUrl(path: string, base: string): URL {
+  const target = new URL(safeReturnPath(path), base);
+  return target.origin === new URL(base).origin ? target : new URL("/integrationer", base);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasMsGroup, hasMsScope, msFeaturesFor, msScopesForRequest, normalizeMsScopes, parseMsGrant } from "./scopes";
+import { hasMsGroup, hasMsScope, msFeaturesFor, msScopesForRequest, msScopesInUse, normalizeMsScopes, parseMsGrant } from "./scopes";
 
 describe("Microsoft-behörigheter", () => {
   it("tolkar Microsofts scope-sträng och tar bort OIDC-delar och resursprefix", () => {
@@ -41,5 +41,13 @@ describe("Microsoft-behörigheter", () => {
   it("slår bara på en funktion om behörigheten faktiskt beviljades", () => {
     expect(msFeaturesFor(["mail_read", "calendar_read"], ["Mail.Read", "User.Read"])).toEqual(["mail"]);
     expect(msFeaturesFor(["calendar_read"], ["User.Read"])).toEqual([]);
+  });
+
+  it("behörigheter för en frånkopplad del räknas inte som använda", () => {
+    const granted = ["Calendars.Read", "Mail.Read", "Mail.ReadWrite", "User.Read"];
+    expect(msScopesInUse(granted, { mail: false, calendar: true })).toEqual(["Calendars.Read", "User.Read"]);
+    expect(msScopesInUse(granted, { mail: true, calendar: true })).toEqual(granted);
+    // Reconnecting the calendar does not ask for the mail permission again.
+    expect(msScopesForRequest(msScopesInUse(["Mail.Read", "User.Read"], { mail: false, calendar: false }), ["calendar_read"])).not.toContain("Mail.Read");
   });
 });

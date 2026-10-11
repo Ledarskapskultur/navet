@@ -42,10 +42,15 @@ export async function appStatus(svc: NavetService): Promise<AppStatus> {
     passwordProtected: Boolean(env.appPassword),
     googleConfigured: googleConfigured(),
     outlookConfigured: outlookConfigured(),
-    outlook: outlookConfigured() && integrationsUnlocked() ? ((await loadMsConnection(await getStore()))?.account ?? null) : null,
+    outlook: outlookConfigured() && integrationsUnlocked() ? await outlookAccount() : null,
     storage: svc.storageKind,
     storageDurable: svc.storageKind === "supabase" || !process.env.VERCEL,
   };
+}
+
+async function outlookAccount(): Promise<AppStatus["outlook"]> {
+  const account = (await loadMsConnection(await getStore()))?.account;
+  return account ? { name: account.name, email: account.email } : null;
 }
 
 export async function readJson<T>(req: Request): Promise<T> {

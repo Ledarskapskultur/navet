@@ -82,7 +82,10 @@ export function exchangeMsCode(opts: { code: string; baseUrl: string; codeVerifi
   });
 }
 
-/** Without a scope parameter Microsoft returns a token for everything granted so far. */
-export function refreshMsToken(refreshToken: string) {
-  return token({ grant_type: "refresh_token", refresh_token: refreshToken });
+/**
+ * A new access token limited to `scopes`. Asking for fewer permissions than were granted is
+ * allowed, and is how a disconnected part's permission is left out of the token.
+ */
+export function refreshMsToken(refreshToken: string, scopes: string[]) {
+  return token({ grant_type: "refresh_token", refresh_token: refreshToken, scope: scopes.join(" ") });
 }

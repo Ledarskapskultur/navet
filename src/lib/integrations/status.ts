@@ -64,7 +64,7 @@ const MAIL_CAPABILITIES: CapabilitySpec[] = [
 
 const CALENDAR_CAPABILITIES: CapabilitySpec[] = [
   { id: "calendar.agenda", label: "Dagens agenda, kommande möten och veckovy", effect: "read", group: "calendar_read", built: true },
-  { id: "calendar.details", label: "Mötesinformation: plats, deltagare och Teams-länk", effect: "read", group: "calendar_read", built: true },
+  { id: "calendar.details", label: "Mötesinformation: plats, deltagare och länk till onlinemöte", effect: "read", group: "calendar_read", built: true },
   { id: "calendar.availability", label: "Lediga och upptagna tider samt månadsvy", effect: "read", group: "calendar_read", built: false, note: "Byggs i fas 3." },
   { id: "calendar.create", label: "Skapa bokningar och Teams-möten, bjuda in deltagare", effect: "write", group: "calendar_write", built: false, note: "Byggs i fas 3. Tills dess öppnar Boka möte Outlook." },
   { id: "calendar.change", label: "Flytta eller avboka möten efter bekräftelse", effect: "write", group: "calendar_write", built: false, note: "Byggs i fas 3." },
@@ -94,7 +94,7 @@ async function microsoftStatus(store: NavetStore, feature: MsFeature, baseUrl: s
         : "Outlook-kalendern från ditt Microsoft 365-konto via Microsoft Graph.",
     state,
     available: true,
-    account: on ? (connection?.account ?? null) : null,
+    account: on && connection ? { name: connection.account.name, email: connection.account.email } : null,
     connectedAt: on ? (connection?.connectedAt ?? null) : null,
     lastSyncAt: on ? health[feature].lastSyncAt : null,
     lastError: !on

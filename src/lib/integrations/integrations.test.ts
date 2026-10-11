@@ -136,8 +136,19 @@ describe("Anslutningen", () => {
     await conn.saveMsConnection(store, connection());
     const left = await conn.disableMsFeature(store, "mail");
     expect(left?.features).toEqual({ mail: false, calendar: true });
+    // The mail permission is dropped from what Navet holds, and the old token is not reused.
+    expect(left?.scopes).toEqual(["Calendars.Read", "User.Read"]);
     await expect(conn.msAccessToken(store, "mail")).rejects.toThrow();
-    expect(await conn.msAccessToken(store, "calendar")).toBe("access-1");
+    const bodies: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      bodies.push(String(init.body));
+      return json({ access_token: "access-cal", refresh_token: "refresh-2", expires_in: 3600, scope: "Calendars.Read User.Read" });
+    });
+    expect(await conn.msAccessToken(store, "calendar")).toBe("access-cal");
+    const asked = new URLSearchParams(bodies[0]).get("scope");
+    expect(asked).toContain("Calendars.Read");
+    expect(asked).not.toContain("Mail.Read");
+    vi.unstubAllGlobals();
     expect(await conn.disableMsFeature(store, "calendar")).toBeNull();
     expect(await conn.loadMsConnection(store)).toBeNull();
     expect(JSON.stringify(await store.getKV("me", "microsoft_connection"))).toBe('{"sealed":""}');
@@ -170,6 +181,31 @@ describe("Anslutningen", () => {
     expect(card.lastError).toMatch(/Anslut kontot igen/);
   });
 
+  it("ett enstaka 401 från Graph provar en ny nyckel innan kontot markeras för omanslutning", async () => {
+    await conn.saveMsConnection(store, connection());
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      if (url.includes("login.microsoftonline.com")) return json({ access_token: "access-2", refresh_token: "refresh-2", expires_in: 3600, scope: "Mail.Read Calendars.Read User.Read" });
+      const token = (init.headers as Record<string, string>).Authorization;
+      seen.push(token);
+      if (token === "Bearer access-1") return json({ error: { code: "InvalidAuthenticationToken" } }, 401);
+      return json({ value: [] });
+    });
+    await expect((await providers.getMailProvider(store)).listFlagged()).resolves.toEqual([]);
+    expect(seen).toEqual(["Bearer access-1", "Bearer access-2"]);
+    expect((await providers.msFeatureStatus(store, "mail")).state).toBe("connected");
+  });
+
+  it("frånkoppling under en pågående förnyelse återskapar inte anslutningen", async () => {
+    await conn.saveMsConnection(store, connection({ expiresAt: Date.now() - 1000 }));
+    vi.stubGlobal("fetch", async () => {
+      await conn.deleteMsConnection(store); // the user disconnects while Microsoft is answering
+      return json({ access_token: "access-2", refresh_token: "refresh-2", expires_in: 3600, scope: "Mail.Read User.Read" });
+    });
+    await expect(conn.msAccessToken(store, "mail")).rejects.toThrow();
+    expect(await conn.loadMsConnection(store)).toBeNull();
+  });
+
   it("utgången klienthemlighet ger ett begripligt fel i stället för omanslutning", async () => {
     await conn.saveMsConnection(store, connection({ expiresAt: Date.now() - 1000 }));
     vi.stubGlobal("fetch", async () => json({ error: "invalid_client", error_description: "AADSTS7000222: expired client secret" }, 401));
@@ -192,6 +228,20 @@ describe("Mejlöversikt och status", () => {
     const [mail] = await status.integrationStatuses(store, BASE);
     expect(mail.state).toBe("connected");
     expect(mail.lastSyncAt).not.toBeNull();
+  });
+
+  it("en del av översikten som fallerar tömmer inte resten", async () => {
+    await conn.saveMsConnection(store, connection());
+    vi.stubGlobal("fetch", async (url: string) => {
+      const path = decodeURIComponent(url);
+      if (path.includes("/mailFolders/inbox?")) return json({ error: { code: "Simulated" } }, 500);
+      if (path.includes("/me/messages")) return json({ value: [] });
+      return json({ value: [{ id: "n", subject: "Hej", bodyPreview: "", receivedDateTime: "2026-10-10T10:00:00Z" }] });
+    });
+    const summary = await (await providers.getMailProvider(store)).summary();
+    expect(summary.unreadCount).toBeNull();
+    expect(summary.flaggedCount).toBe(0);
+    expect(summary.latest).toHaveLength(1);
   });
 
   it("ett Graph-fel sparas som senaste fel och försvinner när det fungerar igen", async () => {
@@ -254,6 +304,12 @@ describe("Återgång efter inloggning", () => {
     expect(flow.safeReturnPath("//evil.example")).toBe("/integrationer");
     expect(flow.safeReturnPath("https://evil.example")).toBe("/integrationer");
     expect(flow.safeReturnPath("/\\evil.example")).toBe("/integrationer");
+    // URL parsing drops tabs and newlines, which would turn these into "//evil.example".
+    expect(flow.safeReturnPath("/\t/evil.example")).toBe("/integrationer");
+    expect(flow.safeReturnPath("/\n/evil.example")).toBe("/integrationer");
+    expect(flow.safeReturnPath("/kalender?vecka=42")).toBe("/kalender?vecka=42");
+    expect(flow.returnUrl("/\t/evil.example", "https://navet.example").href).toBe("https://navet.example/integrationer");
+    expect(flow.returnUrl("/kalender", "https://navet.example").href).toBe("https://navet.example/kalender");
     expect(flow.safeReturnPath(null)).toBe("/integrationer");
   });
 });

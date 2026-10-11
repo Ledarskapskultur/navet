@@ -4,7 +4,7 @@ import type { NavetStore } from "../../server/store";
 import { env, integrationsUnlocked, outlookConfigured, sessionSecretOk } from "../../server/env";
 import type { IntegrationState } from "../types";
 import { loadMsConnection, loadMsHealth, msAccessToken, recordMsResult, type MsConnection, type MsHealth } from "./connection";
-import { graphCalendarView, graphFlaggedMail, graphMailSummary } from "./graph";
+import { GraphAuthError, graphCalendarView, graphFlaggedMail, graphMailSummary } from "./graph";
 import type { MsFeature } from "./scopes";
 
 export interface CalendarProvider {
@@ -164,10 +164,21 @@ class NoMailProvider implements MailProvider {
   }
 }
 
-/** Runs a Graph call for a feature and remembers how it went ("senaste synkronisering" / last error). */
+/**
+ * Runs a Graph call for a feature and remembers how it went ("senaste synkronisering" / last
+ * error). If Graph rejects the token, one fresh token is tried before the connection is
+ * marked as needing a new sign-in – a single stray 401 must not disconnect anything.
+ */
 async function tracked<T>(store: NavetStore, feature: MsFeature, call: (token: string) => Promise<T>): Promise<T> {
   try {
-    const result = await call(await msAccessToken(store, feature));
+    const token = await msAccessToken(store, feature);
+    let result: T;
+    try {
+      result = await call(token);
+    } catch (err) {
+      if (!(err instanceof GraphAuthError)) throw err;
+      result = await call(await msAccessToken(store, feature, { force: true }));
+    }
     await recordMsResult(store, feature, null);
     return result;
   } catch (err) {

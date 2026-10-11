@@ -83,7 +83,9 @@ Sidan Integrationer, startsidan och senare AI-assistenten läser alla samma stat
   miljövariabler på servern. `.env*` är undantaget i `.gitignore`.
 - **Minsta behörighet.** Navet ber bara om behörigheter som används. Skrivbehörigheter begärs
   först när funktionen som behöver dem är byggd, och då stegvis för det konto som redan är
-  anslutet.
+  anslutet. Kopplar du från en del begär Navet nya nycklar utan den delens behörighet.
+- **Anslutning startas bara från Navet.** En länk på en annan webbplats kan inte starta en
+  anslutning, och efter inloggningen går det bara att hamna på en sida inom Navet.
 - **Lås på publik adress.** Ligger Navet på internet utan `APP_PASSWORD` stängs integrationerna
   av helt. Annars skulle vem som helst med länken kunna läsa mejl och kalender.
 - **Godkännande.** Allt som skickar, publicerar, ändrar eller raderar något hos en tjänst är
@@ -135,5 +137,5 @@ ersätta utan att resten av appen ändras. Kopplingen byggs i fas 5.
 - `npm test`: enhetstester, bland annat behörighetslogik, kryptering av nycklar, förnyelse,
   återanslutning, felstatus, låsning på publik adress och att ingen simulerad data visas.
 - Hela anslutningsflödet är dessutom genomklickat i webbläsare mot en lokal ersättare för
-  Microsofts inloggning och Graph (50 kontroller). Det verifierar Navets logik, inte Microsofts
+  Microsofts inloggning och Graph (60 kontroller). Det verifierar Navets logik, inte Microsofts
   tjänst. Den sista kontrollen gör du själv mot ditt konto, se `docs/integrationer.md`.

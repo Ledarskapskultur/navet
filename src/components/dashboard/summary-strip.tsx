@@ -4,19 +4,11 @@ import Link from "next/link";
 import clsx from "clsx";
 import { CalendarClock, Flag, MailOpen, Sun } from "lucide-react";
 import type { ReactNode } from "react";
+import { eventDays, nextMeeting, occursOn } from "@/lib/calendar";
 import { formatDue, formatTime, toISODate } from "@/lib/dates";
 import type { CalendarEvent } from "@/lib/types";
 import type { RemoteSummary } from "@/hooks/use-remote";
 import type { IntegrationState } from "@/lib/integrations/types";
-
-/** The next meeting that hasn't ended: one that is going on now, otherwise the next to start. */
-export function nextMeeting(events: CalendarEvent[] | null, now = new Date()): CalendarEvent | null {
-  return (
-    (events ?? [])
-      .filter((e) => !e.allDay && new Date(e.end) > now)
-      .sort((a, b) => (a.start < b.start ? -1 : 1))[0] ?? null
-  );
-}
 
 function untilText(start: Date, now: Date): string {
   const mins = Math.round((start.getTime() - now.getTime()) / 60_000);
@@ -63,13 +55,16 @@ export function SummaryStrip({
   const now = new Date();
   const next = nextMeeting(events, now);
   const today = toISODate(now);
-  const meetingsToday = (events ?? []).filter((e) => (e.allDay ? e.start.slice(0, 10) : toISODate(new Date(e.start))) === today).length;
-  const mailLive = mail.provider === "outlook" || mail.provider === "demo";
+  // "Möten" are timed events; all-day entries (a course week, a holiday) are shown in the agenda.
+  const meetingsToday = (events ?? []).filter((e) => !e.allDay && occursOn(e, today)).length;
+  // Live = there is a mailbox AND the last fetch worked. A failed fetch must never read as "0".
+  const mailLive = (mail.provider === "outlook" || mail.provider === "demo") && !mail.error;
   const s = mail.summary;
 
   let meetingSub: string;
   if (!calendarLive) meetingSub = offText(calendarState, "Kalendern", "ansluten");
   else if (!next) meetingSub = "Inget bokat kommande 7 dagar";
+  else if (next.allDay) meetingSub = `${formatDue(eventDays(next).first)} · heldag`;
   else {
     const start = new Date(next.start);
     const until = untilText(start, now);
@@ -94,7 +89,7 @@ export function SummaryStrip({
         loading={mail.provider === null}
         muted={!mailLive || s?.unreadCount == null}
         value={mailLive && s?.unreadCount != null ? s.unreadCount : "–"}
-        sub={mailLive ? "i inkorgen" : offText(mail.state, "Outlook", "anslutet")}
+        sub={mailLive ? (s?.unreadCount != null ? "i inkorgen" : "Kunde inte hämtas") : offText(mail.state, "Outlook", "anslutet")}
       />
       <Tile
         icon={<Flag className="size-3.5" />}
@@ -103,14 +98,14 @@ export function SummaryStrip({
         loading={mail.provider === null}
         muted={!mailLive || s?.flaggedCount == null}
         value={mailLive && s?.flaggedCount != null ? `${s.flaggedCount}${s.flaggedMore ? "+" : ""}` : "–"}
-        sub={mailLive ? (s?.flaggedCount === 1 ? "flaggat mejl" : "flaggade mejl") : "Flaggade mejl i Outlook"}
+        sub={mailLive ? (s?.flaggedCount == null ? "Kunde inte hämtas" : s.flaggedCount === 1 ? "flaggat mejl" : "flaggade mejl") : "Flaggade mejl i Outlook"}
       />
       <Tile
         icon={<Sun className="size-3.5" />}
         label="Idag"
         href="/att-gora?filter=today"
         loading={events === null}
-        value={meetingsToday + tasksToday}
+        value={(calendarLive ? meetingsToday : 0) + tasksToday}
         sub={`${calendarLive ? `${meetingsToday} ${meetingsToday === 1 ? "möte" : "möten"} · ` : ""}${tasksToday} ${tasksToday === 1 ? "uppgift" : "uppgifter"}`}
       />
     </div>

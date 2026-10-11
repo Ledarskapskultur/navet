@@ -100,9 +100,19 @@ ansluten för både mejl och kalender.
 
 ### Koppla från
 
-**Koppla från** på ett kort gör att Navet slutar använda den delen. När både mejl och kalender
-är frånkopplade raderas de sparade nycklarna. Själva samtycket ligger kvar hos Microsoft tills
+**Koppla från** på ett kort gör att Navet slutar använda den delen och hämtar en ny nyckel utan
+den delens behörighet. När både mejl och kalender är frånkopplade raderas de sparade nycklarna. Själva samtycket ligger kvar hos Microsoft tills
 du tar bort appen under **Enterprise applications** i Entra.
+
+### Kända begränsningar i den här versionen
+
+- **Att följa upp** räknar flaggade mejl i alla mappar, även Skickat och Borttaget.
+- **Viktiga** visar mejl som avsändaren har markerat med hög prioritet de senaste 30 dagarna,
+  högst fem. Navets egen bedömning av vilka mejl som kräver en åtgärd kommer i fas 2.
+- **Möten** i sammanfattningen är tidsatta händelser. Heldagshändelser, till exempel en
+  kursvecka, visas i agendan men räknas inte som möten.
+- Återkallar du samtycket hos Microsoft märker Navet det först vid nästa förnyelse av nyckeln,
+  inom ungefär en timme.
 
 ## LinkedIn
 

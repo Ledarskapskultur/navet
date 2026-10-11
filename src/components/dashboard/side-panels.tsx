@@ -6,14 +6,13 @@ import { CalendarTimeline } from "@/components/calendar-timeline";
 import { ConnectNotice } from "@/components/connect-notice";
 import { LinkedInIcon } from "@/components/icons";
 import { Card, Pill, Section } from "@/components/ui";
-import { formatDue, formatTime, toISODate } from "@/lib/dates";
+import { byStart, eventDays, eventTimeLabel, occursOn } from "@/lib/calendar";
+import { formatDue, toISODate } from "@/lib/dates";
 import { STATE_LABEL, type IntegrationState, type IntegrationStatus } from "@/lib/integrations/types";
 import type { CalendarEvent, RemoteProviderKind } from "@/lib/types";
 
 /** Opens Outlook's own "new event" form. Booking inside Navet comes with the calendar phase. */
 const OUTLOOK_NEW_EVENT = "https://outlook.office.com/calendar/deeplink/compose";
-
-const dayOf = (e: CalendarEvent) => (e.allDay ? e.start.slice(0, 10) : toISODate(new Date(e.start)));
 
 export function CalendarPanel({
   events,
@@ -30,8 +29,14 @@ export function CalendarPanel({
 }) {
   const live = provider === "outlook" || provider === "demo";
   const today = toISODate(new Date());
-  const todays = events?.filter((e) => dayOf(e) === today) ?? null;
-  const upcoming = (events ?? []).filter((e) => dayOf(e) > today).slice(0, 5);
+  // An event that spans several days (a course week) is on the agenda every one of them.
+  const todays = events?.filter((e) => occursOn(e, today)) ?? null;
+  const upcoming = (events ?? [])
+    .filter((e) => eventDays(e).first > today)
+    .sort((a, b) => eventDays(a).first.localeCompare(eventDays(b).first) || byStart(a, b))
+    .slice(0, 5);
+  // A failed fetch shows the error only – an empty agenda would look like a free day.
+  const failed = Boolean(error);
 
   return (
     <Section
@@ -55,18 +60,21 @@ export function CalendarPanel({
               </Link>
             </p>
           )}
-          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">Dagens agenda</p>
-          <CalendarTimeline events={todays} />
+          {!failed && (
+            <>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">Dagens agenda</p>
+              <CalendarTimeline events={todays} />
+            </>
+          )}
 
-          {upcoming.length > 0 && (
+          {!failed && upcoming.length > 0 && (
             <>
               <p className="mb-2 mt-4 border-t border-line pt-4 text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">Kommande möten</p>
               <ul className="space-y-2.5">
                 {upcoming.map((e) => (
                   <li key={e.id} className="text-sm">
                     <p className="text-xs text-ink-3">
-                      {formatDue(dayOf(e))}
-                      {e.allDay ? " · heldag" : ` · ${formatTime(e.start)}–${formatTime(e.end)}`}
+                      {formatDue(eventDays(e).first)} · {eventTimeLabel(e, eventDays(e).first).toLowerCase()}
                     </p>
                     {e.link ? (
                       <a href={e.link} target="_blank" rel="noreferrer" className="text-[15px] leading-snug text-ink hover:underline">
@@ -82,7 +90,7 @@ export function CalendarPanel({
           )}
 
           {provider !== null && (
-          <div className="mt-4 border-t border-line pt-4">
+          <div className={failed ? "" : "mt-4 border-t border-line pt-4"}>
             {live && provider === "outlook" ? (
               <a
                 href={OUTLOOK_NEW_EVENT}
@@ -93,14 +101,14 @@ export function CalendarPanel({
                 <CalendarPlus className="size-4" /> Boka nytt möte <ExternalLink className="size-3.5 text-ink-3" />
               </a>
             ) : null}
-            <p className="mt-2 flex items-start gap-1.5 text-xs text-ink-3">
-              <CalendarDays className="mt-px size-3.5 shrink-0" />
-              {provider === "outlook"
-                ? "Från din Outlook-kalender. Boka nytt möte öppnar Outlook tills bokning direkt i Navet är byggd."
-                : provider === "demo"
-                  ? "Demoläge: mötena är exempel och kommer inte från något konto."
-                  : "Kalendern kunde inte hämtas."}
-            </p>
+            {!failed && (
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-ink-3">
+                <CalendarDays className="mt-px size-3.5 shrink-0" />
+                {provider === "outlook"
+                  ? "Från din Outlook-kalender. Boka nytt möte öppnar Outlook tills bokning direkt i Navet är byggd."
+                  : "Demoläge: mötena är exempel och kommer inte från något konto."}
+              </p>
+            )}
           </div>
           )}
         </Card>

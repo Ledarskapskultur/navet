@@ -31,6 +31,7 @@ const ERRORS: Record<string, string> = {
   outlook_not_configured: "Microsoft-anslutningen är inte konfigurerad på servern. Se kortet nedan för vad som saknas.",
   session_secret: "SESSION_SECRET saknas eller är kortare än 32 tecken. Den krävs för att kryptera anslutningen.",
   app_password_required: "Integrationer är avstängda tills Navet skyddas med lösenord. Lägg till APP_PASSWORD och gör en ny deploy.",
+  cross_site: "Anslutningen måste startas härifrån. Tryck på Anslut konto på kortet nedan.",
   invalid_state: "Inloggningen kunde inte verifieras. Det händer om det gått mer än 10 minuter eller om du bytt webbläsare. Försök igen.",
   ms_token_exchange: "Microsoft godkände inte inloggningen. Kontrollera klienthemligheten och redirect-URI:n i Entra.",
   ms_no_refresh_token: "Microsoft gav ingen varaktig inloggning (offline_access saknas). Kontrollera behörigheterna i Entra.",
@@ -70,8 +71,8 @@ function IntegrationsView() {
   const params = useSearchParams();
   // What Microsoft's redirect told us. Kept in state, because the address bar is tidied right
   // after (which also clears the search params) and the message should stay on screen.
-  const [outcome] = useState(() => ({ error: params.get("error"), connected: params.get("connected") }));
-  const { error: errorCode, connected } = outcome;
+  const [outcome] = useState(() => ({ error: params.get("error"), connected: params.get("connected"), switched: params.get("switched") === "1" }));
+  const { error: errorCode, connected, switched } = outcome;
 
   useEffect(() => {
     if (!connected && !errorCode) return;
@@ -100,7 +101,9 @@ function IntegrationsView() {
       {connected && connectedNames.length > 0 && (
         <div role="status" className="mb-6">
           <Notice icon={<Check className="size-4" />}>
-            <strong className="font-semibold">{connectedNames.join(" och ")} är anslutet.</strong> Tryck på Testa anslutningen för att se att allt fungerar.
+            <strong className="font-semibold">{connectedNames.join(" och ")} är anslutet.</strong>{" "}
+            {switched && "Du loggade in med ett annat konto än tidigare, så den förra anslutningen har ersatts. Anslut den andra delen igen om du vill ha kvar den. "}
+            Tryck på Testa anslutningen för att se att allt fungerar.
           </Notice>
         </div>
       )}
@@ -336,7 +339,9 @@ function SetupBox({ integration: i }: { integration: IntegrationStatus }) {
   const microsoft = i.provider === "microsoft";
   return (
     <div className="mx-5 mb-4 rounded-xl border border-amber/20 bg-amber-soft/60 px-4 py-3 text-sm text-ink-2 sm:mx-6">
-      <p className="font-medium text-ink">Ej konfigurerad. Det här behövs innan du kan ansluta:</p>
+      <p className="font-medium text-ink">
+        {i.available ? "Ej konfigurerad. Det här behövs innan du kan ansluta:" : "Förberedelser du kan göra redan nu. Själva anslutningen kommer i en senare fas:"}
+      </p>
       <ol className="mt-2 list-decimal space-y-1.5 pl-5">
         <li>
           {microsoft ? (

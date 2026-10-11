@@ -138,3 +138,24 @@ export function msFeaturesFor(groups: MsScopeGroupId[], granted: string[]): MsFe
   for (const g of groups) if (hasMsGroup(granted, g)) out.add(MS_SCOPE_GROUPS[g].feature);
   return [...out];
 }
+
+/** Which feature a Graph permission belongs to (null for the shared ones such as User.Read). */
+export function msScopeFeature(scope: string): MsFeature | null {
+  for (const id of MS_SCOPE_GROUP_IDS) {
+    const g: MsScopeGroup = MS_SCOPE_GROUPS[id];
+    if (g.scopes.some((s) => s.toLowerCase() === scope.toLowerCase())) return g.feature;
+  }
+  return null;
+}
+
+/**
+ * The permissions Navet actually uses: everything granted except what belongs to a part
+ * that is switched off. Used for token refresh, so a disconnected part's permission is
+ * dropped from the access token Navet holds.
+ */
+export function msScopesInUse(granted: string[], features: Record<MsFeature, boolean>): string[] {
+  return granted.filter((s) => {
+    const feature = msScopeFeature(s);
+    return feature === null || features[feature];
+  });
+}

@@ -25,6 +25,8 @@ export function MailPanel({ mail, className }: { mail: RemoteSummary; className?
   const [tab, setTab] = useState<Tab>("latest");
   const live = mail.provider === "outlook" || mail.provider === "demo";
   const s = mail.summary;
+  // Nothing at all came back (as opposed to one part of the summary failing).
+  const nothing = !s || (s.unreadCount === null && s.flaggedCount === null && !s.latest.length && !s.flagged.length && !s.important.length);
   const list = s ? s[tab] : [];
 
   return (
@@ -54,29 +56,34 @@ export function MailPanel({ mail, className }: { mail: RemoteSummary; className?
         )
       ) : (
         <>
-          <div className="mb-3">
+          <div className={mail.error && nothing ? "hidden" : "mb-3"}>
             <SegmentedTabs
               value={tab}
               onChange={setTab}
               options={[
                 { value: "latest", label: "Senaste" },
                 { value: "flagged", label: "Flaggade", count: s?.flaggedCount ?? undefined },
-                { value: "important", label: "Viktiga", count: s?.important.length },
+                { value: "important", label: "Viktiga" },
               ]}
             />
           </div>
           {mail.error && (
             <p role="alert" className="mb-3 rounded-xl bg-warn-soft px-3 py-2.5 text-sm text-warn">
-              {mail.error}
+              {mail.error}{" "}
+              <Link href="/integrationer" className="font-medium underline underline-offset-2">
+                Öppna Integrationer
+              </Link>
             </p>
           )}
-          <Card className="overflow-hidden">
-            {list.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-ink-2">{mail.error ? "Inget att visa." : EMPTY[tab]}</p>
-            ) : (
-              list.map((m) => <MailRow key={m.id} mail={m} />)
-            )}
-          </Card>
+          {!(mail.error && nothing) && (
+            <Card className="overflow-hidden">
+              {list.length === 0 ? (
+                <p className="px-4 py-8 text-center text-sm text-ink-2">{EMPTY[tab]}</p>
+              ) : (
+                list.map((m) => <MailRow key={m.id} mail={m} />)
+              )}
+            </Card>
+          )}
           {mail.provider === "demo" && <p className="mt-2 px-1 text-xs text-ink-3">Demoläge: mejlen är exempel och kommer inte från något konto.</p>}
         </>
       )}

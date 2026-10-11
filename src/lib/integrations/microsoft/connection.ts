@@ -4,7 +4,7 @@ import type { NavetStore } from "../../server/store";
 import { OWNER_ID } from "../../server/session";
 import { GraphAuthError } from "./graph";
 import { MsOAuthError, needsReauth, refreshMsToken } from "./oauth";
-import { MS_LEGACY_SCOPES, normalizeMsScopes, type MsFeature } from "./scopes";
+import { MS_BASE_SCOPES, MS_LEGACY_SCOPES, msScopesInUse, normalizeMsScopes, type MsFeature } from "./scopes";
 
 /**
  * The Microsoft connection is stored server-side (encrypted) for the workspace owner, so
@@ -17,9 +17,10 @@ export interface MsConnection {
   refreshToken: string;
   /** epoch ms */
   expiresAt: number;
-  account: { name: string; email: string };
+  /** id = the account's object id at Microsoft (missing on connections saved by older versions) */
+  account: { name: string; email: string; id?: string };
   connectedAt: string;
-  /** Graph permissions Microsoft has granted, e.g. ["Calendars.Read", "Mail.Read", "User.Read"] */
+  /** Graph permissions in the token Navet holds, e.g. ["Calendars.Read", "Mail.Read", "User.Read"] */
   scopes: string[];
   features: Record<MsFeature, boolean>;
 }
@@ -84,7 +85,9 @@ export async function disableMsFeature(store: NavetStore, feature: MsFeature): P
     await deleteMsConnection(store);
     return null;
   }
-  const next = { ...c, features };
+  // Drop the part's permissions and expire the access token, so the next call gets one
+  // that no longer covers the disconnected part.
+  const next = { ...c, features, scopes: msScopesInUse(c.scopes, features), expiresAt: 0 };
   await saveMsConnection(store, next);
   const health = await loadMsHealth(store);
   await store.setKV(OWNER_ID, HEALTH_KEY, { ...health, [feature]: { lastSyncAt: null, lastError: null } });
@@ -134,14 +137,18 @@ export async function recordMsResult(store: NavetStore, feature: MsFeature, err:
 let refreshing: Promise<MsConnection> | null = null;
 
 async function refresh(store: NavetStore, c: MsConnection): Promise<MsConnection> {
-  const t = await refreshMsToken(c.refreshToken);
+  const t = await refreshMsToken(c.refreshToken, [...MS_BASE_SCOPES, ...msScopesInUse(c.scopes, c.features)]);
+  // The connection may have changed while Microsoft answered: removed, or replaced by a new sign-in.
+  const latest = await loadMsConnection(store);
+  if (!latest) throw new GraphAuthError("Outlook är inte anslutet.");
+  if (latest.refreshToken !== c.refreshToken) return latest;
   const granted = normalizeMsScopes(t.scope);
   const next: MsConnection = {
-    ...c,
+    ...latest,
     accessToken: t.access_token,
-    refreshToken: t.refresh_token ?? c.refreshToken,
+    refreshToken: t.refresh_token ?? latest.refreshToken,
     expiresAt: Date.now() + t.expires_in * 1000,
-    scopes: granted.length ? granted : c.scopes,
+    scopes: granted.length ? msScopesInUse(granted, latest.features) : latest.scopes,
   };
   await saveMsConnection(store, next);
   return next;
@@ -149,18 +156,22 @@ async function refresh(store: NavetStore, c: MsConnection): Promise<MsConnection
 
 /**
  * A valid access token, refreshing (and persisting the rotated refresh token) when needed.
- * Pass the feature to make sure Navet is still allowed to use that part.
+ * Pass the feature to make sure Navet is still allowed to use that part. `force` gets a new
+ * token even when the stored one has not expired (used when Graph rejected it).
  */
-export async function msAccessToken(store: NavetStore, feature?: MsFeature): Promise<string> {
+export async function msAccessToken(store: NavetStore, feature?: MsFeature, opts: { force?: boolean } = {}): Promise<string> {
   const c = await loadMsConnection(store);
   if (!c || (feature && !c.features[feature])) throw new GraphAuthError("Outlook är inte anslutet.");
-  if (c.expiresAt - 60_000 > Date.now()) return c.accessToken;
+  if (!opts.force && c.expiresAt - 60_000 > Date.now()) return c.accessToken;
   try {
     refreshing ??= refresh(store, c).finally(() => {
       refreshing = null;
     });
-    return (await refreshing).accessToken;
+    const next = await refreshing;
+    if (feature && !next.features[feature]) throw new GraphAuthError("Outlook är inte anslutet.");
+    return next.accessToken;
   } catch (err) {
+    if (err instanceof GraphAuthError) throw err;
     if (needsReauth(err)) throw new GraphAuthError();
     if (err instanceof MsOAuthError && (err.code === "invalid_client" || err.code === "unauthorized_client")) {
       throw new Error("Microsoft godkände inte appens klienthemlighet. Den kan ha gått ut – skapa en ny i Entra och uppdatera MICROSOFT_CLIENT_SECRET.");

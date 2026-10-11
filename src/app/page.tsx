@@ -10,7 +10,8 @@ import { CalendarPanel, LinkedInPanel } from "@/components/dashboard/side-panels
 import { SummaryStrip } from "@/components/dashboard/summary-strip";
 import { TasksPanel } from "@/components/dashboard/tasks-panel";
 import { useCalendar, useIntegrations, useMailSummary } from "@/hooks/use-remote";
-import { formatLongDate, greeting, todayISO, toISODate } from "@/lib/dates";
+import { occursOn } from "@/lib/calendar";
+import { formatLongDate, greeting, todayISO } from "@/lib/dates";
 import { byNewest, isActionable, isActive, isDueToday, isOverdue } from "@/lib/selectors";
 
 export default function TodayPage() {
@@ -22,8 +23,9 @@ export default function TodayPage() {
   const today = todayISO();
 
   const events = calendar.data;
-  const calendarLive = calendar.provider === "outlook" || calendar.provider === "demo";
-  const meetingsToday = (events ?? []).filter((e) => (e.allDay ? e.start.slice(0, 10) : toISODate(new Date(e.start))) === today).length;
+  // Live = a calendar is connected AND the fetch worked. A failed fetch must not read as "no meetings".
+  const calendarLive = (calendar.provider === "outlook" || calendar.provider === "demo") && !calendar.error;
+  const meetingsToday = (events ?? []).filter((e) => !e.allDay && occursOn(e, today)).length;
 
   const overdue = items.filter((i) => isOverdue(i, today) && isActionable(i));
   const waiting = items.filter((i) => i.type === "waiting" && isActive(i));

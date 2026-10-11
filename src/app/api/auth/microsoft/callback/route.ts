@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { exchangeMsCode, MsOAuthError } from "@/lib/integrations/microsoft/oauth";
-import { MS_OAUTH_COOKIE, type MsOAuthFlow } from "@/lib/integrations/microsoft/flow";
+import { MS_OAUTH_COOKIE, returnUrl, type MsOAuthFlow } from "@/lib/integrations/microsoft/flow";
 import { graphMe } from "@/lib/integrations/microsoft/graph";
 import { loadMsConnection, resetMsHealth, saveMsConnection } from "@/lib/integrations/microsoft/connection";
-import { msFeaturesFor, normalizeMsScopes } from "@/lib/integrations/microsoft/scopes";
+import { msFeaturesFor, msScopesInUse, normalizeMsScopes } from "@/lib/integrations/microsoft/scopes";
 import { decrypt } from "@/lib/server/crypto";
 import { appUrl, integrationsUnlocked } from "@/lib/server/env";
 import { getStore } from "@/lib/server/store";
@@ -42,7 +42,12 @@ export async function GET(req: Request) {
     const store = await getStore();
     const previous = await loadMsConnection(store);
     // A different account replaces the old connection; the same account keeps what was on.
-    const sameAccount = previous?.account.email.toLowerCase() === account.email.toLowerCase();
+    // Accounts are compared by Microsoft's object id (e-mail for connections saved before ids were kept).
+    const sameAccount = previous
+      ? previous.account.id && account.id
+        ? previous.account.id === account.id
+        : previous.account.email.toLowerCase() === account.email.toLowerCase()
+      : false;
     const on = { mail: false, calendar: false, ...(sameAccount ? previous!.features : {}) };
     for (const f of features) on[f] = true;
 
@@ -52,13 +57,15 @@ export async function GET(req: Request) {
       expiresAt: Date.now() + t.expires_in * 1000,
       account,
       connectedAt: sameAccount ? previous!.connectedAt : new Date().toISOString(),
-      scopes: granted,
+      scopes: msScopesInUse(granted, on),
       features: on,
     });
     await resetMsHealth(store);
 
-    const back = new URL(flow.returnTo, base);
+    const back = returnUrl(flow.returnTo, base);
     back.searchParams.set("connected", features.map((f) => (f === "mail" ? "outlook_mail" : "outlook_calendar")).join(","));
+    // Tell the user when signing in with another account replaced the previous connection.
+    if (previous && !sameAccount) back.searchParams.set("switched", "1");
     return NextResponse.redirect(back);
   } catch (err) {
     console.error("[navet] microsoft callback", (err as Error).message);
