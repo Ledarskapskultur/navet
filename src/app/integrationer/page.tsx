@@ -1,6 +1,7 @@
 "use client";
 
 import clsx from "clsx";
+import Link from "next/link";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -10,7 +11,9 @@ import {
   Check,
   CircleDashed,
   Clock3,
+  Download,
   ExternalLink,
+  Info,
   KeyRound,
   Lock,
   Mail,
@@ -18,6 +21,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Unplug,
+  Users,
 } from "lucide-react";
 import { useNavet } from "@/components/navet-provider";
 import { Button, Card, Notice, PageHeader, Pill } from "@/components/ui";
@@ -93,7 +97,7 @@ function IntegrationsView() {
     <div>
       <PageHeader
         title="Integrationer"
-        subtitle="Anslut dina konton. Navet loggar in med OAuth hos respektive tjänst, ser aldrig ditt lösenord och ber bara om de behörigheter som används."
+        subtitle="Anslut dina konton. Navet använder tjänsternas officiella inloggning och API:er, ser aldrig ditt lösenord och ber bara om de behörigheter som används."
       />
 
       {errorCode && (
@@ -133,8 +137,9 @@ function IntegrationsView() {
 
       <p className="mt-8 flex items-start gap-2 text-sm leading-relaxed text-ink-3">
         <ShieldCheck className="mt-0.5 size-4 shrink-0" />
-        Åtkomstnycklar sparas krypterade (AES-256-GCM) på servern och skickas aldrig till webbläsaren. Allt som skickar, publicerar, ändrar eller
-        raderar något hos en tjänst kräver ditt godkännande. Google Tasks hanteras under Inställningar.
+        Åtkomstnycklar sparas krypterade (AES-256-GCM) på servern och skickas aldrig till webbläsaren. LinkedIns åtkomsttoken ligger som
+        miljövariabel på servern och används bara där. Allt som skickar, publicerar, ändrar eller raderar något hos en tjänst kräver ditt
+        godkännande. Google Tasks hanteras under Inställningar.
       </p>
     </div>
   );
@@ -148,7 +153,7 @@ function IntegrationCard({
   onChange: (list: IntegrationStatus[]) => void;
 }) {
   const { notify } = useNavet();
-  const [busy, setBusy] = useState<"test" | "disconnect" | null>(null);
+  const [busy, setBusy] = useState<"test" | "sync" | "disconnect" | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const Icon = ICON[i.id];
@@ -159,6 +164,21 @@ function IntegrationCard({
     setTestResult(null);
     try {
       const res = await api<{ ok: boolean; message: string; integrations: IntegrationStatus[] }>(`/api/integrations/${i.id}/test`, { method: "POST" });
+      setTestResult({ ok: res.ok, message: res.message });
+      onChange(res.integrations);
+    } catch (e) {
+      setTestResult({ ok: false, message: (e as Error).message });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Fetches the integration's data again (LinkedIn contacts). Only reads from the provider.
+  const sync = async () => {
+    setBusy("sync");
+    setTestResult(null);
+    try {
+      const res = await api<{ ok: boolean; message: string; integrations: IntegrationStatus[] }>(`/api/integrations/${i.id}/sync`, { method: "POST", json: {} });
       setTestResult({ ok: res.ok, message: res.message });
       onChange(res.integrations);
     } catch (e) {
@@ -189,7 +209,8 @@ function IntegrationCard({
         <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-subtle text-ink-2">
           <Icon className="size-5" />
         </span>
-        <div className="min-w-0 flex-1">
+        {/* The basis keeps the text readable: a long row of buttons moves to its own line instead of squeezing it. */}
+        <div className="min-w-0 flex-1 basis-64">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold tracking-tight">{i.name}</h2>
             <Pill className={STATE_STYLE[i.state]}>{STATE_LABEL[i.state]}</Pill>
@@ -211,7 +232,22 @@ function IntegrationCard({
               {i.state === "connected" ? "Testa anslutningen" : "Försök igen"}
             </Button>
           )}
+          {isOn && i.canSync && (
+            <Button onClick={sync} disabled={busy !== null}>
+              <Download className={clsx("size-4", busy === "sync" && "animate-pulse")} />
+              {busy === "sync" ? "Hämtar …" : i.lastSyncAt ? "Hämta om" : "Hämta kontakter"}
+            </Button>
+          )}
+          {i.id === "linkedin" && isOn && (
+            <Link
+              href="/kontakter"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-[15px] font-medium text-ink hover:bg-subtle"
+            >
+              <Users className="size-4" /> Visa kontakter
+            </Link>
+          )}
           {isOn &&
+            i.canDisconnect &&
             (confirm ? (
               <Button variant="danger" onClick={disconnect} disabled={busy !== null}>
                 Bekräfta
@@ -261,6 +297,11 @@ function IntegrationCard({
           <Clock3 className="mt-0.5 size-4 shrink-0" /> {i.availabilityNote}
         </p>
       )}
+      {i.notice && !testResult && (
+        <p role="status" className="mx-5 mb-1 flex items-start gap-2 rounded-xl bg-subtle px-3 py-2.5 text-sm text-ink-2 sm:mx-6">
+          <Info className="mt-0.5 size-4 shrink-0" /> <span>{i.notice}</span>
+        </p>
+      )}
       {i.configWarning && (
         <p role="alert" className="mx-5 mb-1 flex items-start gap-2 rounded-xl bg-amber-soft px-3 py-2.5 text-sm text-amber sm:mx-6">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" /> <span>{i.configWarning}</span>
@@ -278,9 +319,16 @@ function IntegrationCard({
       {i.state === "not_configured" && <SetupBox integration={i} />}
 
       <dl className="grid gap-x-8 gap-y-3 border-t border-line px-5 py-4 text-sm sm:grid-cols-3 sm:px-6">
-        <Fact label="Konto" value={i.account ? `${i.account.name} · ${i.account.email}` : "–"} />
-        <Fact label="Senaste synkronisering" value={i.lastSyncAt ? relativeTime(i.lastSyncAt) : isOn ? "Inte än" : "–"} />
-        <Fact label="Ansluten sedan" value={i.connectedAt ? new Date(i.connectedAt).toLocaleDateString("sv-SE") : "–"} />
+        {i.storedCount === null && !i.canSync ? (
+          <Fact label="Konto" value={i.account ? `${i.account.name} · ${i.account.email}` : "–"} />
+        ) : (
+          <Fact label="Hämtade kontakter" value={i.storedCount === null ? "–" : i.storedCount.toLocaleString("sv-SE")} />
+        )}
+        <Fact label={i.canSync ? "Senast hämtad" : "Senaste synkronisering"} value={i.lastSyncAt ? relativeTime(i.lastSyncAt) : isOn ? "Inte än" : "–"} />
+        <Fact
+          label={i.canDisconnect ? "Ansluten sedan" : "Token i bruk sedan"}
+          value={i.connectedAt ? new Date(i.connectedAt).toLocaleDateString("sv-SE") : "–"}
+        />
       </dl>
 
       <div className="grid gap-6 border-t border-line bg-canvas/50 px-5 py-5 sm:px-6 md:grid-cols-2">
@@ -343,37 +391,51 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+const Env = ({ names }: { names: string[] }) => (
+  <>
+    {names.map((v, n) => (
+      <span key={v}>
+        {n > 0 && ", "}
+        <code className="rounded bg-surface px-1.5 py-0.5 text-xs">{v}</code>
+      </span>
+    ))}
+  </>
+);
+
 /** What has to be done outside Navet before the account can be connected. */
 function SetupBox({ integration: i }: { integration: IntegrationStatus }) {
   const microsoft = i.provider === "microsoft";
   return (
     <div className="mx-5 mb-4 rounded-xl border border-amber/20 bg-amber-soft/60 px-4 py-3 text-sm text-ink-2 sm:mx-6">
       <p className="font-medium text-ink">
-        {i.available ? "Ej konfigurerad. Det här behövs innan du kan ansluta:" : "Förberedelser du kan göra redan nu. Själva anslutningen kommer i en senare fas:"}
+        {microsoft ? "Ej konfigurerad. Det här behövs innan du kan ansluta:" : "Ej konfigurerad. Det här behövs innan kontakterna kan hämtas:"}
       </p>
-      <ol className="mt-2 list-decimal space-y-1.5 pl-5">
-        <li>
-          {microsoft ? (
-            <>Registrera en app i Microsoft Entra ID (entra.microsoft.com → App registrations).</>
-          ) : (
-            <>Skapa en app på LinkedIn Developers (linkedin.com/developers/apps) och lägg till produkterna Sign In with LinkedIn using OpenID Connect och Share on LinkedIn.</>
-          )}
-        </li>
-        <li>
-          Lägg in redirect-URI:n <code className="break-all rounded bg-surface px-1.5 py-0.5 text-xs">{i.redirectUri}</code>
-          {microsoft ? " (plattform: Web)." : "."}
-        </li>
-        <li>
-          Lägg till miljövariablerna{" "}
-          {i.missingConfig.map((v, n) => (
-            <span key={v}>
-              {n > 0 && ", "}
-              <code className="rounded bg-surface px-1.5 py-0.5 text-xs">{v}</code>
-            </span>
-          ))}{" "}
-          på servern (Vercel → Settings → Environment Variables) och gör en ny deploy.
-        </li>
-      </ol>
+      {microsoft ? (
+        <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+          <li>Registrera en app i Microsoft Entra ID (entra.microsoft.com → App registrations).</li>
+          <li>
+            Lägg in redirect-URI:n <code className="break-all rounded bg-surface px-1.5 py-0.5 text-xs">{i.redirectUri}</code> (plattform: Web).
+          </li>
+          <li>
+            Lägg till miljövariablerna <Env names={i.missingConfig} /> på servern (Vercel → Settings → Environment Variables) och gör en ny deploy.
+          </li>
+        </ol>
+      ) : (
+        <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+          <li>
+            Skapa en app på LinkedIn Developers (linkedin.com/developers/apps) med standardsidan Member Data Portability (Member) Default Company som
+            företagssida, och lägg till produkten Member Data Portability API (Member) under Products.
+          </li>
+          <li>
+            Skapa en åtkomsttoken i LinkedIns tokenverktyg (linkedin.com/developers/tools/oauth/token-generator) med behörigheten{" "}
+            <code className="rounded bg-surface px-1.5 py-0.5 text-xs">r_dma_portability_self_serve</code>. Den gäller i upp till ett år.
+          </li>
+          <li>
+            Lägg in token i miljövariabeln <Env names={i.missingConfig} /> på servern (Vercel → Settings → Environment Variables, Production) och gör
+            en ny deploy. Klistra aldrig in token någon annanstans.
+          </li>
+        </ol>
+      )}
       <p className="mt-2 text-ink-3">Hela guiden steg för steg finns i docs/integrationer.md i projektet.</p>
     </div>
   );

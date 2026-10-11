@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { addDays, startOfDay } from "date-fns";
 import { api } from "@/lib/client-api";
 import type { IntegrationState, IntegrationStatus } from "@/lib/integrations/types";
-import type { CalendarEvent, MailMessage, MailSummary, RemoteProviderKind } from "@/lib/types";
+import type { CalendarEvent, LinkedInContact, MailMessage, MailSummary, RemoteProviderKind } from "@/lib/types";
 
 interface Remote<T> {
   data: T[] | null;
@@ -105,4 +105,50 @@ export function useIntegrations(): RemoteIntegrations {
     };
   }, []);
   return { integrations, error, set: setIntegrations, reload };
+}
+
+export interface ContactsResponse {
+  state: IntegrationState;
+  contacts: LinkedInContact[];
+  /** How many contacts match the search (the list itself may be cut off) */
+  matching: number;
+  /** How many contacts are stored in all */
+  total: number;
+  lastSyncAt: string | null;
+  /** LinkedIn has not prepared the contact list yet */
+  pending: boolean;
+  /** More than a day since the last fetch: the page may ask the server for a new one */
+  autoSyncDue: boolean;
+  error: string | null;
+}
+
+export interface RemoteContacts {
+  /** null while loading */
+  result: ContactsResponse | null;
+  error: string | null;
+  reload: () => Promise<void>;
+}
+
+/** LinkedIn contacts stored in Navet, filtered on the server by name and company. */
+export function useContacts(query: string, limit = 100): RemoteContacts {
+  const [state, setState] = useState<{ result: ContactsResponse | null; error: string | null }>({ result: null, error: null });
+  const load = useCallback(
+    (alive: () => boolean = () => true) =>
+      api<ContactsResponse>(`/api/contacts?${new URLSearchParams({ q: query, limit: String(limit) })}`)
+        .then((r) => {
+          if (alive()) setState({ result: r, error: null });
+        })
+        .catch((e) => {
+          if (alive()) setState((s) => ({ result: s.result, error: (e as Error).message }));
+        }),
+    [query, limit],
+  );
+  useEffect(() => {
+    let alive = true;
+    void load(() => alive);
+    return () => {
+      alive = false;
+    };
+  }, [load]);
+  return { ...state, reload: () => load() };
 }

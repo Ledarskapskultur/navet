@@ -153,6 +153,20 @@ export interface MailSummary {
 /** Where a calendar or mail response came from. "none" = nothing connected, so nothing is shown. */
 export type RemoteProviderKind = "demo" | "outlook" | "none";
 
+/** A first-degree LinkedIn connection, fetched through the Member Data Portability API. */
+export interface LinkedInContact {
+  id: string;
+  name: string;
+  title: string | null;
+  company: string | null;
+  /** YYYY-MM-DD when the date could be read, otherwise the text exactly as LinkedIn gave it */
+  connectedOn: string | null;
+  profileUrl: string | null;
+  source: "linkedin";
+  /** When Navet first fetched this contact */
+  firstSeenAt: string;
+}
+
 export interface SessionUser {
   id: string;
   email: string;

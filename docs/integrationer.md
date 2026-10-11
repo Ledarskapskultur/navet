@@ -116,45 +116,108 @@ du tar bort appen under **Enterprise applications** i Entra.
 
 ## LinkedIn
 
-Anslutningen byggs i fas 4. Förberedelserna kan du göra när som helst.
+Navet hämtar dina LinkedIn-kontakter via LinkedIns officiella **Member Data Portability API
+(Member)**. API:et finns för medlemmar i EES och Schweiz och ger dig dina egna data. Navet
+läser bara: ingenting skickas, publiceras, ändras eller tas bort på LinkedIn.
 
-### 1. Skapa appen
+Det finns ingen Anslut-knapp för LinkedIn. Åtkomsttoken skapas för hand i LinkedIns eget
+tokenverktyg och läggs in som miljövariabel, eftersom det är den väg LinkedIn dokumenterar
+för det här API:et.
 
-1. <https://www.linkedin.com/developers/apps> → **Create app**. Appen måste knytas till en
-   LinkedIn-företagssida, till exempel Ledarskapskulturs sida, och sidan ska verifiera appen.
-2. Fliken **Products**, lägg till:
-   - **Sign In with LinkedIn using OpenID Connect** (ger `openid`, `profile`, `email`)
-   - **Share on LinkedIn** (ger `w_member_social`)
-3. Fliken **Auth**: kopiera **Client ID** och **Client Secret** och lägg in redirect-adresserna.
+### 1. Skapa appen (en gång)
 
-| Miljö | Authorized redirect URL |
-|---|---|
-| Produktion | `https://navet-orcin.vercel.app/api/auth/linkedin/callback` |
-| Lokalt | `http://localhost:3000/api/auth/linkedin/callback` |
+1. <https://www.linkedin.com/developers/apps> → **Create app**. Välj standardsidan
+   **Member Data Portability (Member) Default Company** som företagssida. Med en egen
+   företagssida går det inte att begära åtkomst, och valet kan inte ändras efteråt.
+2. Fliken **Products** → **Member Data Portability API (Member)** → **Request access**.
+   Åtkomsten aktiveras direkt.
 
-### 2. Miljövariabler
+### 2. Skapa en åtkomsttoken
+
+1. <https://www.linkedin.com/developers/tools/oauth/token-generator> → välj appen.
+2. Kryssa i behörigheten `r_dma_portability_self_serve` och rutan om att verktyget lägger till
+   sin egen redirect-adress i appen.
+3. **Request access token** → **Allow**. Kopiera token. Den gäller i upp till ett år.
+
+### 3. Miljövariabel
+
+Vercel → projektet **navet** → **Settings → Environment Variables**, sedan **Redeploy**.
 
 | Variabel | Värde |
 |---|---|
-| `LINKEDIN_CLIENT_ID` | Client ID |
-| `LINKEDIN_CLIENT_SECRET` | Client Secret |
+| `LINKEDIN_ACCESS_TOKEN` | Token från tokenverktyget, i ett stycke utan citattecken och utan ordet Bearer |
+
+Token läses bara på servern. Den sparas inte i databasen, skickas aldrig till webbläsaren och
+skrivs aldrig i loggar. Klistra inte in den någon annanstans.
+
+### 4. Hämta och kontrollera
+
+1. Navet → **Integrationer** → kortet LinkedIn → **Testa anslutningen**. Testet läser första
+   sidan av kontaktlistan och visar hur många rader som kom och vilka fältnamn LinkedIn använder.
+2. **Hämta kontakter** läser alla sidor och sparar kontakterna i Navet.
+3. Öppna **Kontakter** i menyn och sök på namn eller företag.
+
+Direkt efter att en token har skapats kan LinkedIn svara att det inte finns någon data.
+LinkedIn sammanställer en ögonblicksbild när token utfärdas och det kan dröja. Navet visar då
+*inte klart än*, inte ett fel. Försök igen senare.
+
+### Så fungerar hämtningen
+
+- Anropet är `GET https://api.linkedin.com/rest/memberSnapshotData?q=criteria&domain=CONNECTIONS`
+  med `Linkedin-Version: 202312`, den enda version som stöds. Sidorna numreras med `start`, och
+  Navet fortsätter tills LinkedIn svarar att det inte finns mer data.
+- Varje kontakt sparas med namn, titel, företag, kontaktdatum och profiladress. Andra fält,
+  till exempel e-postadress, sparas inte.
+- LinkedIn dokumenterar inte de exakta fältnamnen. Navet läser dem ur svaret, visar dem i
+  resultatet av testet och hämtningen och skriver dem (bara namnen, aldrig några värden) i
+  serverloggen första gången. Ett fält som inte känns igen nämns uttryckligen och gissas inte.
+- En ny hämtning uppdaterar befintliga kontakter i stället för att skapa dubbletter. En
+  fullständig hämtning ersätter listan, så kontakter som inte längre finns på LinkedIn
+  försvinner. Är listan från LinkedIn mindre än hälften så lång som den sparade behålls de
+  sparade kontakterna, eftersom LinkedIn då troligen har svarat innan sammanställningen var klar.
+- Navet hämtar på egen hand högst en gång per dygn, när du öppnar sidan Kontakter, och annars
+  bara när du trycker **Hämta om**. LinkedIn anger varken hur ofta ögonblicksbilden uppdateras
+  eller vilka anropsgränser som gäller, så listan är inte i realtid.
+- Kontakterna sparas i den befintliga tabellen `navet_kv`. Ingen ny tabell behövs.
+
+### Om något går fel
+
+| Det du ser | Orsak och åtgärd |
+|---|---|
+| *Ej konfigurerad* | `LINKEDIN_ACCESS_TOKEN` saknas. Glöm inte Redeploy |
+| *Avstängd* | `APP_PASSWORD` saknas på en publik adress |
+| *Behöver anslutas igen* | LinkedIn svarade 401 eller 403: token är ogiltig, har gått ut eller saknar behörigheten. Skapa en ny i tokenverktyget, byt `LINKEDIN_ACCESS_TOKEN`, Redeploy |
+| Varning om citattecken, Bearer, mellanslag eller för kort värde | Värdet i `LINKEDIN_ACCESS_TOKEN` är felklistrat. Kopiera token igen |
+| *Fel*, API-versionen accepteras inte (426) | LinkedIn har slutat stödja `Linkedin-Version: 202312`. Navet behöver uppdateras |
+| *Fel*, Navet känner inte igen något namnfält | LinkedIn använder fältnamn som Navet inte känner till. Meddelandet listar namnen. Lägg till dem i `src/lib/integrations/linkedin/connections.ts` |
+| *Inte klart än* | LinkedIn har inte sammanställt kontaktlistan. Försök igen senare |
+
+Kortet påminner när token har varit i bruk i ungefär elva månader. LinkedIn har inget
+dokumenterat sätt att förnya den utan att skapa en ny i tokenverktyget.
+
+### Koppla från
+
+Ta bort `LINKEDIN_ACCESS_TOKEN` i Vercel och gör en ny deploy. Återkalla också token under
+**Permitted services** i LinkedIns inställningar, eller ta bort appen på LinkedIn Developers.
 
 ### Vad LinkedIns officiella API tillåter
 
 | Funktion | Går det? |
 |---|---|
-| Ansluta kontot, visa namn, bild och e-post | Ja, med Sign In with LinkedIn using OpenID Connect |
-| Publicera inlägg i ditt namn | Ja, med Share on LinkedIn (`w_member_social`), efter ditt godkännande |
-| Utkast och planerade inlägg | Ja, de sparas i Navet. LinkedIn har inget API för utkast |
+| Hämta dina kontakter (namn, titel, företag, kontaktdatum) | Ja, med Member Data Portability API (Member). Byggt |
+| Publicera inlägg i ditt namn | Ja, med Share on LinkedIn (`w_member_social`), efter ditt godkännande. Inte byggt än |
+| Utkast och planerade inlägg | Ja, de sparas i Navet. LinkedIn har inget API för utkast. Inte byggt än |
 | Statistik för dina inlägg | Nej för egna appar. Kräver att LinkedIn godkänner appen som partner |
-| Meddelanden, kontakter, aktivitetsflöde | Nej. Finns inte i det öppna API:et |
+| Meddelanden och aktivitetsflöde i realtid | Nej. Finns inte i det öppna API:et |
+
+Att publicera inlägg kräver en egen LinkedIn-app med inloggning (Sign In with LinkedIn using
+OpenID Connect och Share on LinkedIn), knuten till en företagssida som verifierar appen.
+Appen för Member Data Portability kan inte användas till det. Variablerna `LINKEDIN_CLIENT_ID`
+och `LINKEDIN_CLIENT_SECRET` och redirect-adressen `<APP_URL>/api/auth/linkedin/callback` är
+förberedda för den delen och behövs inte för kontakterna.
 
 Navet använder inte scraping eller inofficiella API:er. Där API:et saknar en funktion visar
 Navet det tydligt och länkar till LinkedIn i stället.
-
-Enligt LinkedIns dokumentation gäller en åtkomstnyckel i 60 dagar, och förnyelse utan ny
-inloggning är förbehållen godkända partner. Räkna därför med att ansluta LinkedIn igen ungefär
-varannan månad. Detta kontrolleras mot aktuell dokumentation som första steg i fas 4.
 
 ## Databasen
 
@@ -163,4 +226,5 @@ Kör migrationerna i `supabase/migrations/` i ordning. Ny i den här versionen:
 - `0003_in_progress.sql`: lägger till statusen Pågår. Den vidgar bara vilka värden som är
   tillåtna och ändrar inga befintliga rader.
 
-Anslutningar och deras status sparas i den befintliga tabellen `navet_kv`. Inga nya tabeller behövs.
+Anslutningar, deras status och de hämtade LinkedIn-kontakterna sparas i den befintliga tabellen
+`navet_kv`. Inga nya tabeller behövs.

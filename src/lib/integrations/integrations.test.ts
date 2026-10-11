@@ -58,6 +58,7 @@ beforeAll(async () => {
   delete process.env.VERCEL;
   delete process.env.APP_PASSWORD;
   delete process.env.APP_URL;
+  delete process.env.LINKEDIN_ACCESS_TOKEN;
   store = await (await import("../server/store")).getStore();
   conn = await import("./microsoft/connection");
   providers = await import("./microsoft/providers");
@@ -279,9 +280,10 @@ describe("Mejlöversikt och status", () => {
     expect(calendar.connectUrl).toBe("/api/auth/microsoft?grant=calendar_read&return=/integrationer");
     expect(calendar.permissions.every((p) => !p.granted)).toBe(true);
 
-    expect(linkedin).toMatchObject({ state: "not_configured", available: false, connectUrl: null });
-    expect(linkedin.missingConfig).toEqual(["LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET"]);
-    expect(linkedin.redirectUri).toBe("https://navet.example/api/auth/linkedin/callback");
+    expect(linkedin).toMatchObject({ state: "not_configured", available: true, connectUrl: null, canDisconnect: false });
+    expect(linkedin.missingConfig).toEqual(["LINKEDIN_ACCESS_TOKEN"]);
+    expect(mail.canDisconnect).toBe(true);
+    expect(mail.canSync).toBe(false);
     expect(linkedin.capabilities.filter((c) => c.status === "unavailable").map((c) => c.id)).toEqual(["linkedin.stats", "linkedin.social"]);
     // Everything that changes something outside Navet is marked as needing approval.
     const all = [...mail.capabilities, ...calendar.capabilities, ...linkedin.capabilities];

@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, CalendarPlus, ExternalLink, PenLine } from "lucide-react";
+import { CalendarDays, CalendarPlus, ExternalLink, PenLine, Users } from "lucide-react";
 import { CalendarTimeline } from "@/components/calendar-timeline";
 import { ConnectNotice } from "@/components/connect-notice";
 import { LinkedInIcon } from "@/components/icons";
 import { Card, Pill, Section } from "@/components/ui";
 import { byStart, eventDays, eventTimeLabel, occursOn } from "@/lib/calendar";
-import { formatDue, toISODate } from "@/lib/dates";
+import { formatDue, relativeTime, toISODate } from "@/lib/dates";
 import { STATE_LABEL, type IntegrationState, type IntegrationStatus } from "@/lib/integrations/types";
 import type { CalendarEvent, RemoteProviderKind } from "@/lib/types";
 
@@ -126,8 +126,9 @@ const STATE_STYLE: Record<IntegrationState, string> = {
   error: "bg-warn-soft text-warn",
 };
 
-/** LinkedIn: connection status, drafts, planned posts and account. */
+/** LinkedIn: status, number of fetched contacts and a way to write a post on LinkedIn itself. */
 export function LinkedInPanel({ integration, className }: { integration: IntegrationStatus | null; className?: string }) {
+  const count = integration?.storedCount ?? null;
   return (
     <Section
       className={className}
@@ -145,22 +146,28 @@ export function LinkedInPanel({ integration, className }: { integration: Integra
           <>
             <div className="flex items-center gap-2.5">
               <LinkedInIcon className="size-5 text-ink-2" />
-              <span className="font-medium text-ink">{integration.account?.name ?? "Inget konto anslutet"}</span>
+              <span className="font-medium text-ink">Kontakter</span>
               <Pill className={`ml-auto ${STATE_STYLE[integration.state]}`}>{STATE_LABEL[integration.state]}</Pill>
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3">
               <div>
-                <dt className="text-xs uppercase tracking-wide text-ink-3">Utkast</dt>
-                <dd className="mt-0.5 text-ink-3">–</dd>
+                <dt className="text-xs uppercase tracking-wide text-ink-3">Hämtade kontakter</dt>
+                <dd className="mt-0.5 tabular-nums text-ink">{count === null ? <span className="text-ink-3">–</span> : count.toLocaleString("sv-SE")}</dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-ink-3">Planerade inlägg</dt>
-                <dd className="mt-0.5 text-ink-3">–</dd>
+                <dt className="text-xs uppercase tracking-wide text-ink-3">Senast hämtad</dt>
+                <dd className="mt-0.5 text-ink">{integration.lastSyncAt ? relativeTime(integration.lastSyncAt) : <span className="text-ink-3">–</span>}</dd>
               </div>
             </dl>
-            <p className="mt-3 text-ink-3">
-              {integration.availabilityNote ?? "Utkast och planerade inlägg visas här."} Tills dess kan du skriva inlägget direkt på LinkedIn.
-            </p>
+            {count !== null && (
+              <Link
+                href="/kontakter"
+                className="mt-3 flex h-10 items-center justify-center gap-2 rounded-xl border border-line bg-surface text-[15px] font-medium text-ink transition-colors hover:bg-subtle"
+              >
+                <Users className="size-4" /> Visa kontakter
+              </Link>
+            )}
+            <p className="mt-3 text-ink-3">Utkast och planerade inlägg är inte byggda än. Tills dess kan du skriva inlägget direkt på LinkedIn.</p>
             <a
               href="https://www.linkedin.com/feed/?shareActive=true"
               target="_blank"

@@ -15,6 +15,6 @@ export async function POST(req: Request, ctx: RouteContext<"/api/integrations/[i
   const store = await getStore();
   if (id === "outlook_mail") await disableMsFeature(store, "mail");
   else if (id === "outlook_calendar") await disableMsFeature(store, "calendar");
-  else return NextResponse.json({ error: "LinkedIn är inte anslutet." }, { status: 400 });
+  else return NextResponse.json({ error: "LinkedIn kopplas från genom att ta bort LINKEDIN_ACCESS_TOKEN på servern och göra en ny deploy." }, { status: 400 });
   return NextResponse.json({ integrations: await integrationStatuses(store, appUrl(req)) });
 }
