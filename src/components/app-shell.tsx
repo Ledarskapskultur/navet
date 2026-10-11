@@ -20,6 +20,7 @@ import {
   Plus,
   Settings,
   Sun,
+  Users,
   X,
 } from "lucide-react";
 import { useNavet } from "./navet-provider";
@@ -53,6 +54,7 @@ function useNav() {
     { href: "/projekt", label: "Projekt", icon: FolderKanban },
     { href: "/kalender", label: "Kalender", icon: CalendarDays },
     { href: "/mail", label: "Mail att hantera", icon: Mail },
+    { href: "/kontakter", label: "Kontakter", icon: Users },
   ];
   const integrations: NavItem[] = [
     ...(google ? [{ href: "/google-tasks", label: "Google Tasks", icon: GoogleTasksIcon }] : []),
