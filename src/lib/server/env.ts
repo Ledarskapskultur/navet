@@ -16,6 +16,11 @@ export const env = {
   linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET?.trim() || null,
   /** Access token for LinkedIn's Member Data Portability API, created by hand in LinkedIn's token tool */
   linkedinAccessToken: process.env.LINKEDIN_ACCESS_TOKEN?.trim() || null,
+  /**
+   * Token for Apify, the third-party service that reads who liked and commented on the owner's
+   * LinkedIn posts. LinkedIn's official API does not offer that, so this part is not official.
+   */
+  apifyToken: process.env.APIFY_TOKEN?.trim() || null,
   dataDir: process.env.NAVET_DATA_DIR || null,
   /** Optional password that protects the whole app */
   appPassword: process.env.APP_PASSWORD || null,
@@ -69,6 +74,19 @@ export function linkedinTokenProblem(): "quoted" | "bearer_prefix" | "whitespace
   if (/^bearer\s/i.test(token)) return "bearer_prefix";
   if (/\s/.test(token)) return "whitespace";
   if (token.length < 40) return "too_short";
+  return null;
+}
+
+export const apifyConfigured = () => Boolean(env.apifyToken);
+
+/** Spots a mis-pasted APIFY_TOKEN from its shape alone, without revealing it. */
+export function apifyTokenProblem(): "quoted" | "bearer_prefix" | "whitespace" | "too_short" | null {
+  const token = env.apifyToken;
+  if (!token) return null;
+  if (/^["'].*["']$/.test(token)) return "quoted";
+  if (/^bearer\s/i.test(token)) return "bearer_prefix";
+  if (/\s/.test(token)) return "whitespace";
+  if (token.length < 20) return "too_short";
   return null;
 }
 
