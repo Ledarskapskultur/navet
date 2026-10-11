@@ -66,6 +66,7 @@ Resten av den här README:n beskriver även den valfria Google-kopplingen:
 | **Kalender** | Veckovy med möten från Outlook och dina deadlines från Navet. Utan anslutet konto visas bara deadlines, aldrig exempelmöten |
 | **Mail att hantera** | Flaggade Outlook-mejl med Navets tolkning (vad som ska göras, deadline, projekt, källa) och knapp för att skapa en uppgift |
 | **Kontakter** | Dina LinkedIn-kontakter, hämtade via LinkedIns officiella Member Data Portability API. Sök på namn och företag. Enbart läsning, och utan inlagd token visas ingenting |
+| **LinkedIn** | Veckostatistik för dina egna inlägg: reaktioner, kommentarer och vilka personerna är, sorterade i dina målgrupper, med knapp för att skapa en uppföljning. Personerna hämtas via tredjepartstjänsten Apify, inte LinkedIns API |
 | **Google Tasks** | Alla listor. Här kan du skapa, redigera, ändra datum, markera som klar, flytta och radera. Sidan visar synkstatus och har en knapp för *Synka nu* |
 | **Röst & Google** | Flödet Hey Google → Google Tasks → Navet förklarat visuellt, plus de senaste objekten som kommit från Google Tasks |
 | **+ Fånga** | Snabbfångst från alla sidor: knappen i menyn, den runda knappen på mobilen och tangenterna `N` eller `Ctrl/⌘+K`. Texten tolkas på svenska, tolkningen visas innan du sparar och du kan tala in text med mikrofonen |
@@ -214,7 +215,8 @@ Kopiera `.env.example` till `.env.local`:
 | `SUPABASE_SERVICE_ROLE_KEY` | Rekommenderas i produktion | *service_role*-nyckeln. Används bara på servern |
 | `MICROSOFT_CLIENT_ID` / `_SECRET` / `_TENANT_ID` | För Outlook och kalender | Appregistreringen i Entra ID, se docs/integrationer.md |
 | `LINKEDIN_ACCESS_TOKEN` | För LinkedIn-kontakter | Åtkomsttoken från LinkedIns tokenverktyg, gäller i upp till ett år, se docs/integrationer.md |
-| `LINKEDIN_CLIENT_ID` / `_SECRET` | Nej (fas 4 b) | Appen för att publicera inlägg, inte byggt än, se docs/integrationer.md |
+| `APIFY_TOKEN` | För LinkedIn-statistik | Token från apify.com. Tredjepartstjänst som läser vilka som gillat och kommenterat dina inlägg, se docs/integrationer.md |
+| `LINKEDIN_CLIENT_ID` / `_SECRET` | Nej (fas 4 c) | Appen för att publicera inlägg, inte byggt än, se docs/integrationer.md |
 | `NAVET_DATA_DIR` | Nej | Annan katalog för den filbaserade lagringen |
 
 **Supabase (valfritt):** skapa ett projekt på <https://supabase.com>. Kör sedan SQL-filerna i `supabase/migrations/` i nummerordning i *SQL Editor*, eller med `supabase db push` om du använder Supabase CLI, och sätt de två variablerna. Tabellerna har RLS påslaget utan policies, så `anon`-nyckeln kommer inte åt någon data. All åtkomst går via Next.js-servern.
@@ -301,6 +303,7 @@ Alla integrationer följer samma modell och visas under **Integrationer** i appe
 - Inloggning sker med OAuth hos tjänsten (authorization code med PKCE). Navet ser aldrig ditt lösenord.
 - Nycklarna sparas krypterade på servern och når aldrig webbläsaren.
 - LinkedIn-kontakterna läses med en åtkomsttoken som du skapar i LinkedIns tokenverktyg och lägger i `LINKEDIN_ACCESS_TOKEN`. Den används bara på servern.
+- Ett uttalat undantag från officiella API:er: vilka som gillat och kommenterat dina LinkedIn-inlägg hämtas via tredjepartstjänsten Apify (`APIFY_TOKEN`), eftersom LinkedIn inte erbjuder det. Det är tydligt märkt i appen.
 - Navet ber bara om de behörigheter som används, och ber om fler först när en funktion kräver det.
 - Utan anslutet konto visas ingenting. Exempeldata finns bara i demoläget.
 - Allt som skickar, publicerar, ändrar eller raderar kräver ditt godkännande.

@@ -27,7 +27,7 @@ import { useNavet } from "./navet-provider";
 import { CaptureDialog } from "./capture-dialog";
 import { ItemEditor } from "./item-editor";
 import { SyncStatus } from "./sync-status";
-import { GoogleTasksIcon } from "./icons";
+import { GoogleTasksIcon, LinkedInIcon } from "./icons";
 import { ThemeToggle } from "./theme-toggle";
 import { isActive } from "@/lib/selectors";
 import { isStandalone, voiceOnLaunchEnabled } from "@/lib/voice-launch";
@@ -55,6 +55,7 @@ function useNav() {
     { href: "/kalender", label: "Kalender", icon: CalendarDays },
     { href: "/mail", label: "Mail att hantera", icon: Mail },
     { href: "/kontakter", label: "Kontakter", icon: Users },
+    { href: "/linkedin", label: "LinkedIn", icon: LinkedInIcon },
   ];
   const integrations: NavItem[] = [
     ...(google ? [{ href: "/google-tasks", label: "Google Tasks", icon: GoogleTasksIcon }] : []),

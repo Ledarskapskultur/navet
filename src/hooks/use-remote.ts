@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { addDays, startOfDay } from "date-fns";
 import { api } from "@/lib/client-api";
 import type { IntegrationState, IntegrationStatus } from "@/lib/integrations/types";
-import type { CalendarEvent, LinkedInContact, MailMessage, MailSummary, RemoteProviderKind } from "@/lib/types";
+import type { EngagedPerson, CalendarEvent, LeadSegment, LinkedInContact, LinkedInPost, MailMessage, MailSummary, RemoteProviderKind } from "@/lib/types";
 
 interface Remote<T> {
   data: T[] | null;
@@ -142,6 +142,56 @@ export function useContacts(query: string, limit = 100): RemoteContacts {
           if (alive()) setState((s) => ({ result: s.result, error: (e as Error).message }));
         }),
     [query, limit],
+  );
+  useEffect(() => {
+    let alive = true;
+    void load(() => alive);
+    return () => {
+      alive = false;
+    };
+  }, [load]);
+  return { ...state, reload: () => load() };
+}
+
+/** What GET /api/linkedin/engagement answers. Mirrors EngagementOverview on the server. */
+export interface EngagementResponse {
+  state: "not_configured" | "locked" | "ready";
+  linkedinPosts: boolean;
+  configWarning: string | null;
+  lastRunAt: string | null;
+  lastFinishedAt: string | null;
+  lastError: string | null;
+  notice: string | null;
+  running: { total: number; remaining: number } | null;
+  autoDue: boolean;
+  lastRecords: number;
+  days: number;
+  windowDays: number;
+  posts: LinkedInPost[];
+  people: EngagedPerson[];
+  summary: { posts: number; reactions: number; comments: number; people: number; bySegment: Record<LeadSegment, number> };
+}
+
+export interface RemoteEngagement {
+  /** null while loading */
+  result: EngagementResponse | null;
+  error: string | null;
+  reload: () => Promise<void>;
+}
+
+/** Statistics for the owner's LinkedIn posts and the people who engaged with them. */
+export function useEngagement(days: number): RemoteEngagement {
+  const [state, setState] = useState<{ result: EngagementResponse | null; error: string | null }>({ result: null, error: null });
+  const load = useCallback(
+    (alive: () => boolean = () => true) =>
+      api<EngagementResponse>(`/api/linkedin/engagement?days=${days}`)
+        .then((r) => {
+          if (alive()) setState({ result: r, error: null });
+        })
+        .catch((e) => {
+          if (alive()) setState((s) => ({ result: s.result, error: (e as Error).message }));
+        }),
+    [days],
   );
   useEffect(() => {
     let alive = true;

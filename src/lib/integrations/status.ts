@@ -1,5 +1,5 @@
 import "server-only";
-import { env, linkedinTokenProblem, msSecretProblem, sessionSecretOk } from "../server/env";
+import { apifyConfigured, env, linkedinTokenProblem, msSecretProblem, sessionSecretOk } from "../server/env";
 import type { NavetStore } from "../server/store";
 import { linkedinFeatureStatus, tokenAgeWarning } from "./linkedin/sync";
 import { msRedirectUri } from "./microsoft/oauth";
@@ -150,10 +150,14 @@ export function linkedinConfigWarning(): string | null {
 const LINKEDIN_SCOPE = "r_dma_portability_self_serve";
 
 /**
- * LinkedIn contacts come from the official Member Data Portability API (open to members in
- * the EEA and Switzerland), read with a token the owner creates in LinkedIn's own token tool.
- * There is no OAuth flow in Navet for it, so there is nothing to connect or disconnect from
- * the card. Navet never scrapes or uses unofficial endpoints, and this integration only reads.
+ * LinkedIn contacts and the owner's own posts come from the official Member Data Portability
+ * API (open to members in the EEA and Switzerland), read with a token the owner creates in
+ * LinkedIn's own token tool. There is no OAuth flow in Navet for it, so there is nothing to
+ * connect or disconnect from the card. Everything here only reads.
+ *
+ * One part is not official: who liked and commented on the owner's posts is not offered by any
+ * LinkedIn API, so it is fetched through the third-party service Apify when APIFY_TOKEN is set.
+ * The card says so in plain words.
  */
 async function linkedinStatus(store: NavetStore, baseUrl: string): Promise<IntegrationStatus> {
   const { state, info } = await linkedinFeatureStatus(store);
@@ -163,7 +167,7 @@ async function linkedinStatus(store: NavetStore, baseUrl: string): Promise<Integ
     id: "linkedin",
     name: "LinkedIn",
     provider: "linkedin",
-    description: "Dina LinkedIn-kontakter via LinkedIns officiella Member Data Portability API. Navet läser bara och ändrar ingenting på LinkedIn.",
+    description: "Dina LinkedIn-kontakter och egna inlägg via LinkedIns officiella Member Data Portability API. Navet läser bara och ändrar ingenting på LinkedIn.",
     state,
     available: true,
     account: null,
@@ -198,6 +202,20 @@ async function linkedinStatus(store: NavetStore, baseUrl: string): Promise<Integ
           : state === "needs_reauth"
             ? "Kräver en ny åtkomsttoken."
             : "Kräver en åtkomsttoken i LINKEDIN_ACCESS_TOKEN.",
+      },
+      {
+        id: "linkedin.posts",
+        label: "Dina egna inlägg med datum, text och länk",
+        effect: "read",
+        status: reads ? "active" : "needs_permission",
+        note: reads ? "Visas på sidan LinkedIn. Nya inlägg kan dröja innan de syns i LinkedIns ögonblicksbild." : "Kräver en åtkomsttoken i LINKEDIN_ACCESS_TOKEN.",
+      },
+      {
+        id: "linkedin.engagers",
+        label: "Vilka som gillat och kommenterat dina inlägg, en gång i veckan",
+        effect: "read",
+        status: apifyConfigured() && state !== "locked" ? "active" : "needs_permission",
+        note: `Finns inte i LinkedIns API. Hämtas via tredjepartstjänsten Apify, som läser inläggens offentliga sidor och inte omfattas av LinkedIns villkor.${apifyConfigured() ? "" : " Kräver APIFY_TOKEN."}`,
       },
       { id: "linkedin.drafts", label: "Förbereda, spara och planera inlägg i Navet", effect: "read", status: "planned", note: "Inte byggt än. Utkasten kommer att sparas i Navet." },
       { id: "linkedin.publish", label: "Publicera inlägg efter ditt godkännande", effect: "write", status: "planned", note: "Inte byggt än. Kräver behörigheten w_member_social." },

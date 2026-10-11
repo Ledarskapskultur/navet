@@ -36,7 +36,7 @@ export const FIELD_LABEL: Record<ContactField, string> = {
   profileUrl: "profil-URL",
 };
 
-const canon = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/g, "");
+export const canon = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 export function detectFields(keys: string[]): FieldMap {
   const byCanon = new Map(keys.map((k) => [canon(k), k]));
@@ -71,7 +71,7 @@ export function describeFields(keys: string[], map: FieldMap): string {
     .join(" ");
 }
 
-function text(row: SnapshotRow, key: string | null): string | null {
+export function text(row: SnapshotRow, key: string | null): string | null {
   if (!key) return null;
   const v = row[key];
   if (typeof v === "string") return v.trim() || null;
