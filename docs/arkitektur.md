@@ -41,7 +41,10 @@ API-routes (Next.js-servern)             src/app/api
          │    ├─ graph.ts                Microsoft Graph: mejl och kalender
          │    └─ providers.ts            väljer Outlook, demo eller ingenting
          ├─ google/                      Google Tasks (fanns sedan tidigare)
-         └─ linkedin/                    byggs i fas 4
+         └─ linkedin/
+              ├─ api.ts                  Member Snapshot API (Member Data Portability), enbart läsning
+              ├─ connections.ts          fältmappning och normalisering av kontakter
+              └─ sync.ts                 hämtning, lagring, status och sökning
 ```
 
 Frontend, backend, API-integrationer och autentisering ligger i var sin del. Webbläsaren
@@ -71,11 +74,17 @@ Sidan Integrationer, startsidan och senare AI-assistenten läser alla samma stat
 | `GET /api/mail/summary` | Olästa, flaggade, viktiga och senaste mejl till startsidan |
 | `GET /api/mail` | Flaggade mejl till sidan Mail att hantera |
 | `GET /api/calendar?from=&to=` | Kalenderhändelser |
+| `POST /api/integrations/linkedin/sync` | Hämtar LinkedIn-kontakterna på nytt. Med `{ "auto": true }` högst en gång per dygn |
+| `GET /api/contacts?q=&limit=&offset=` | Sparade LinkedIn-kontakter, sökbara på namn och företag |
 
 ## Säkerhet
 
 - **OAuth, aldrig lösenord.** Authorization code med PKCE (S256) och `state`. Navet ser aldrig
   lösenordet till Microsoft eller LinkedIn.
+- **LinkedIn-token som miljövariabel.** Åtkomsttoken för LinkedIns Member Data Portability API
+  skapas i LinkedIns tokenverktyg och ligger i `LINKEDIN_ACCESS_TOKEN`. Den läses bara på
+  servern, sparas inte i databasen och skrivs aldrig i loggar. I databasen finns bara ett
+  förkortat kontrollvärde, så att Navet märker när token byts.
 - **Nycklar bara på servern.** Access token och refresh token krypteras med AES-256-GCM
   (nyckel härledd ur `SESSION_SECRET`) och sparas i databasen. De skickas aldrig till
   webbläsaren och finns inte i någon cookie.
@@ -114,7 +123,8 @@ ersätta utan att resten av appen ändras. Kopplingen byggs i fas 5.
 | 2 a | Microsoft-inloggning: behörighetsgrupper, stegvis samtycke, förnyelse, återanslutning, anslutningstest, felhantering | Klar, verifieras mot ditt konto |
 | 2 b | Outlook: hela inkorgen, läsa mejl, sök och filter, trådar, flagga, utkast, skicka efter godkännande | Nästa steg |
 | 3 | Kalender: dag, vecka, månad, lediga tider, skapa och flytta bokningar, Teams-möten, bokningsbara luckor | Planerad |
-| 4 | LinkedIn: ansluta konto, profil, utkast, publicera efter godkännande | Planerad |
+| 4 a | LinkedIn: hämta kontakter via Member Data Portability API, kontaktvy med sökning | Klar, verifieras mot ditt konto |
+| 4 b | LinkedIn: utkast och publicera efter godkännande | Planerad |
 | 5 | Gemensamt flöde: mejl till uppgifter fullt ut, dagsöversikt, AI-assistent | Planerad |
 
 ## Vad som fungerar på riktigt i dag
@@ -130,12 +140,17 @@ ersätta utan att resten av appen ändras. Kopplingen byggs i fas 5.
 | Boka nytt möte | Öppnar Outlooks bokningsformulär. Bokning direkt i Navet kommer i fas 3 |
 | Läsa hela mejl, söka, flagga, utkast, skicka | Inte byggt, fas 2 b |
 | Skapa och flytta möten, Teams-möten, lediga tider | Inte byggt, fas 3 |
-| LinkedIn | Inte byggt, fas 4. Kortet visar vad som krävs och vad API:et inte tillåter |
+| LinkedIn-kontakter: hämta, spara och söka på namn och företag | Riktig data från LinkedIns Member Data Portability API när token är inlagd. Enbart läsning |
+| LinkedIn-inlägg: utkast och publicering | Inte byggt, fas 4 b. Kortet visar vad som krävs och vad API:et inte tillåter |
 
 ## Test
 
 - `npm test`: enhetstester, bland annat behörighetslogik, kryptering av nycklar, förnyelse,
   återanslutning, felstatus, låsning på publik adress och att ingen simulerad data visas.
+  För LinkedIn: sidbläddring, fältmappning, dubbletter, felkoder, "inte klart än", högst en
+  automatisk hämtning per dygn och att token aldrig lämnar servern. Testerna körs mot en lokal
+  ersättare för LinkedIns API. Den sista kontrollen, vilka fältnamn LinkedIn faktiskt skickar,
+  görs mot ditt konto med Testa anslutningen.
 - Hela anslutningsflödet är dessutom genomklickat i webbläsare mot en lokal ersättare för
   Microsofts inloggning och Graph (60 kontroller). Det verifierar Navets logik, inte Microsofts
   tjänst. Den sista kontrollen gör du själv mot ditt konto, se `docs/integrationer.md`.
