@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   Ban,
+  BarChart3,
   CalendarDays,
   Check,
   CircleDashed,
@@ -244,6 +245,14 @@ function IntegrationCard({
               className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-[15px] font-medium text-ink hover:bg-subtle"
             >
               <Users className="size-4" /> Visa kontakter
+            </Link>
+          )}
+          {i.id === "linkedin" && isOn && (
+            <Link
+              href="/linkedin"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-[15px] font-medium text-ink hover:bg-subtle"
+            >
+              <BarChart3 className="size-4" /> Inläggsstatistik
             </Link>
           )}
           {isOn &&
