@@ -44,7 +44,12 @@ API-routes (Next.js-servern)             src/app/api
          └─ linkedin/
               ├─ api.ts                  Member Snapshot API (Member Data Portability), enbart läsning
               ├─ connections.ts          fältmappning och normalisering av kontakter
-              └─ sync.ts                 hämtning, lagring, status och sökning
+              ├─ sync.ts                 hämtning, lagring, status och sökning
+              ├─ posts.ts                egna inlägg ur MEMBER_SHARE_INFO
+              ├─ segments.ts             målgrupper utifrån titel (regler, ingen AI)
+              └─ engagement.ts           veckostatistik: inlägg, personer, körning i delar
+         └─ apify/
+              └─ client.ts               tredjepartstjänst: vilka som gillat och kommenterat
 ```
 
 Frontend, backend, API-integrationer och autentisering ligger i var sin del. Webbläsaren
@@ -76,6 +81,9 @@ Sidan Integrationer, startsidan och senare AI-assistenten läser alla samma stat
 | `GET /api/calendar?from=&to=` | Kalenderhändelser |
 | `POST /api/integrations/linkedin/sync` | Hämtar LinkedIn-kontakterna på nytt. Med `{ "auto": true }` högst en gång per dygn |
 | `GET /api/contacts?q=&limit=&offset=` | Sparade LinkedIn-kontakter, sökbara på namn och företag |
+| `GET /api/linkedin/engagement?days=` | Statistik för egna inlägg och personerna som gillat och kommenterat |
+| `POST /api/linkedin/engagement/sync` | Hämtar statistiken. `{ "auto": true }` högst en gång per vecka, `{ "postId": … }` för ett inlägg |
+| `POST /api/linkedin/posts` | Lägger till ett eget inlägg från en inklistrad länk |
 
 ## Säkerhet
 
@@ -95,6 +103,10 @@ Sidan Integrationer, startsidan och senare AI-assistenten läser alla samma stat
   anslutet. Kopplar du från en del begär Navet nya nycklar utan den delens behörighet.
 - **Anslutning startas bara från Navet.** En länk på en annan webbplats kan inte starta en
   anslutning, och efter inloggningen går det bara att hamna på en sida inom Navet.
+- **Ett uttalat avsteg från officiella API:er.** Vilka som gillat och kommenterat dina
+  LinkedIn-inlägg finns inte i något officiellt API. Den delen hämtas via tredjepartstjänsten
+  Apify, som läser inläggens offentliga sidor, och är tydligt märkt i gränssnittet. Allt annat
+  går via tjänsternas egna API:er. Nyckeln ligger i `APIFY_TOKEN` och hanteras som övriga.
 - **Lås på publik adress.** Ligger Navet på internet utan `APP_PASSWORD` stängs integrationerna
   av helt. Annars skulle vem som helst med länken kunna läsa mejl och kalender.
 - **Godkännande.** Allt som skickar, publicerar, ändrar eller raderar något hos en tjänst är
@@ -124,7 +136,8 @@ ersätta utan att resten av appen ändras. Kopplingen byggs i fas 5.
 | 2 b | Outlook: hela inkorgen, läsa mejl, sök och filter, trådar, flagga, utkast, skicka efter godkännande | Nästa steg |
 | 3 | Kalender: dag, vecka, månad, lediga tider, skapa och flytta bokningar, Teams-möten, bokningsbara luckor | Planerad |
 | 4 a | LinkedIn: hämta kontakter via Member Data Portability API, kontaktvy med sökning | Klar, verifieras mot ditt konto |
-| 4 b | LinkedIn: utkast och publicera efter godkännande | Planerad |
+| 4 b | LinkedIn: veckostatistik för egna inlägg, vilka som gillar och kommenterar, målgrupper, uppföljning | Klar, verifieras mot ditt konto |
+| 4 c | LinkedIn: utkast och publicera efter godkännande | Planerad |
 | 5 | Gemensamt flöde: mejl till uppgifter fullt ut, dagsöversikt, AI-assistent | Planerad |
 
 ## Vad som fungerar på riktigt i dag
@@ -141,7 +154,8 @@ ersätta utan att resten av appen ändras. Kopplingen byggs i fas 5.
 | Läsa hela mejl, söka, flagga, utkast, skicka | Inte byggt, fas 2 b |
 | Skapa och flytta möten, Teams-möten, lediga tider | Inte byggt, fas 3 |
 | LinkedIn-kontakter: hämta, spara och söka på namn och företag | Riktig data från LinkedIns Member Data Portability API när token är inlagd. Enbart läsning |
-| LinkedIn-inlägg: utkast och publicering | Inte byggt, fas 4 b. Kortet visar vad som krävs och vad API:et inte tillåter |
+| LinkedIn-statistik: reaktioner, kommentarer och vilka personerna är, med målgrupp och uppföljning | Riktig data när `APIFY_TOKEN` är inlagd. Personerna hämtas via tredjepartstjänsten Apify, inte LinkedIns API |
+| LinkedIn-inlägg: utkast och publicering | Inte byggt, fas 4 c. Kortet visar vad som krävs och vad API:et inte tillåter |
 
 ## Test
 
@@ -151,6 +165,9 @@ ersätta utan att resten av appen ändras. Kopplingen byggs i fas 5.
   automatisk hämtning per dygn och att token aldrig lämnar servern. Testerna körs mot en lokal
   ersättare för LinkedIns API. Den sista kontrollen, vilka fältnamn LinkedIn faktiskt skickar,
   görs mot ditt konto med Testa anslutningen.
+  För statistiken: målgruppsregler, veckorytm, körning i delar, dubbletter, fel från Apify och
+  att ingen nyckel lämnar servern, mot lokala ersättare för LinkedIn och Apify. Apifys verkliga
+  svarsformat kontrolleras vid första riktiga hämtningen.
 - Hela anslutningsflödet är dessutom genomklickat i webbläsare mot en lokal ersättare för
   Microsofts inloggning och Graph (60 kontroller). Det verifierar Navets logik, inte Microsofts
   tjänst. Den sista kontrollen gör du själv mot ditt konto, se `docs/integrationer.md`.

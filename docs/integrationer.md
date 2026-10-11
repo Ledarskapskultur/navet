@@ -216,8 +216,87 @@ Appen för Member Data Portability kan inte användas till det. Variablerna `LIN
 och `LINKEDIN_CLIENT_SECRET` och redirect-adressen `<APP_URL>/api/auth/linkedin/callback` är
 förberedda för den delen och behövs inte för kontakterna.
 
-Navet använder inte scraping eller inofficiella API:er. Där API:et saknar en funktion visar
-Navet det tydligt och länkar till LinkedIn i stället.
+Kontakter och egna inlägg hämtas enbart via LinkedIns officiella API. Det finns ett uttalat
+undantag: vilka som har gillat och kommenterat dina inlägg, se nästa avsnitt. Där API:et saknar
+en funktion visar Navet det tydligt och länkar till LinkedIn i stället.
+
+## LinkedIn-statistik: vilka som gillar och kommenterar
+
+Sidan **LinkedIn** i Navet visar statistik för dina egna inlägg och vilka personer som har
+gillat och kommenterat dem, sorterade i dina målgrupper. Syftet är att kunna gå från en
+reaktion till en konversation och vidare till en lead.
+
+### Det här är inte LinkedIns officiella API
+
+LinkedIn erbjuder inget API där en egen app kan se vem som har reagerat på ett inlägg. Den
+delen hämtas därför via tredjepartstjänsten **Apify** (apify.com), som läser inläggens
+offentliga sidor utan inloggning. Det omfattas inte av LinkedIns villkor, och det är ett
+medvetet avsteg från principen om enbart officiella API:er. Navet säger det på sidan och på
+LinkedIn-kortet under Integrationer.
+
+| Del | Källa |
+|---|---|
+| Listan över dina inlägg (datum, text, länk) | LinkedIns officiella API, domänen `MEMBER_SHARE_INFO` |
+| Antal reaktioner, kommentarer och delningar | Apify, hämtaren `apimaestro~linkedin-post-detail` |
+| Vilka som gillat och kommenterat | Apify, hämtaren `scraping_solutions~linkedin-posts-engagers-likers-and-commenters-no-cookies` |
+| Visningar och räckvidd | Går inte att hämta. Finns bara i LinkedIns egen statistik |
+
+Det är samma hämtare som skillen linkedin-engager-analytics använder.
+
+### 1. Skapa konto och token hos Apify
+
+1. Skapa ett konto på <https://console.apify.com/sign-up>.
+2. Kopiera din token under **Settings → API & Integrations**. Den börjar med `apify_api_`.
+
+### 2. Miljövariabel
+
+Vercel → projektet **navet** → **Settings → Environment Variables**, sedan **Redeploy**.
+
+| Variabel | Värde |
+|---|---|
+| `APIFY_TOKEN` | Token från Apify, i ett stycke utan citattecken och utan ordet Bearer |
+
+Token läses bara på servern, skickas till Apify i en header och aldrig i en adress, sparas
+inte i databasen och skrivs aldrig i loggar.
+
+### Så fungerar hämtningen
+
+- **En gång i veckan.** Första gången du öppnar sidan LinkedIn en ny vecka (måndag är första
+  dagen) hämtas statistiken av sig själv. Misslyckas hämtningen görs ett nytt försök högst en
+  gång per dag. Knappen **Hämta nu** hämtar när du vill.
+- **Vilka inlägg.** Inlägg från de senaste 14 dagarna, högst 12 per körning. Varje inlägg
+  hinner alltså läsas ungefär två gånger, så att sena reaktioner kommer med.
+- **Hur många personer.** Högst 100 som gillat och 50 som kommenterat per inlägg och hämtning.
+  Personer som redan är sparade ligger kvar, så listan växer mellan hämtningarna.
+- **I delar.** En körning kan ta flera minuter. Servern arbetar en stund i taget och sidan
+  fortsätter automatiskt tills alla inlägg är klara. Stänger du sidan fortsätter körningen
+  nästa gång du öppnar den.
+- **Saknas ett inlägg?** LinkedIn anger inte hur ofta deras ögonblicksbild uppdateras. Klistra
+  in länken till inlägget under fliken Inlägg, så hämtas det direkt.
+- **Målgrupper.** UGL-deltagare, företagskund, offentlig sektor, YH-anordnare eller övrig,
+  bestämt av nyckelord i raden under personens namn. Det är en grov regel utan AI och kan bli
+  fel. Reglerna finns i `src/lib/integrations/linkedin/segments.ts`.
+- **Uppföljning.** Knappen Skapa uppföljning lägger en uppgift i inkorgen med sammanhang,
+  profillänk och ett förslag på öppningsrad. Navet skickar aldrig något på LinkedIn:
+  meddelandet skriver du själv.
+- **Lagring.** Inlägg, personer och status sparas i `navet_kv`. Ingen ny tabell behövs.
+
+### Kostnad
+
+Apify tar betalt per hämtad person, enligt skillens uppgift ungefär 0,005 dollar. Gratisnivån
+ger 5 dollar per månad, alltså ungefär 1 000 personer. När krediten är slut svarar Apify med
+ett fel som Navet visar, och hämtningen fortsätter när krediten fylls på.
+
+### Om något går fel
+
+| Det du ser | Orsak och åtgärd |
+|---|---|
+| *Ej konfigurerad* på sidan LinkedIn | `APIFY_TOKEN` saknas. Glöm inte Redeploy |
+| Apify godkänner inte token | Token är fel eller återkallad. Skapa en ny, byt `APIFY_TOKEN`, Redeploy |
+| Apify-krediten är slut | Månadens kredit är förbrukad. Vänta till nästa månad eller uppgradera hos Apify |
+| Inlägget kunde inte läsas | Inlägget är borttaget eller inte synligt för alla. Apify ser bara offentliga inlägg |
+| Navet känner inte igen namnfältet | Hämtaren har bytt format. Meddelandet listar fältnamnen. Lägg till dem i `engagement.ts` |
+| LinkedIn har inte listan över dina inlägg klar än | Ögonblicksbilden är inte färdig. Klistra in länkar så länge |
 
 ## Databasen
 
@@ -226,5 +305,5 @@ Kör migrationerna i `supabase/migrations/` i ordning. Ny i den här versionen:
 - `0003_in_progress.sql`: lägger till statusen Pågår. Den vidgar bara vilka värden som är
   tillåtna och ändrar inga befintliga rader.
 
-Anslutningar, deras status och de hämtade LinkedIn-kontakterna sparas i den befintliga tabellen
-`navet_kv`. Inga nya tabeller behövs.
+Anslutningar, deras status, de hämtade LinkedIn-kontakterna och inläggsstatistiken sparas i den
+befintliga tabellen `navet_kv`. Inga nya tabeller behövs.
